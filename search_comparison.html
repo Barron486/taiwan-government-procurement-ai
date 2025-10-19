@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>搜尋結果比較測試 - 免疫染色</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Microsoft JhengHei', sans-serif;
+        }
+        .main-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            margin: 20px;
+            padding: 30px;
+        }
+        .search-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .result-card {
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+        .result-card:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .stats-number {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        .loading-spinner {
+            text-align: center;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <h1 class="text-center mb-4">
+            <i class="fas fa-search me-3"></i>搜尋結果比較測試
+        </h1>
+        <p class="text-center text-muted mb-4">比較一般搜尋與 Gemini Agent 搜尋「免疫染色」的差異</p>
+
+        <!-- 搜尋控制區域 -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-search me-2"></i>搜尋控制</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="searchQuery" class="form-label fw-bold">搜尋關鍵字</label>
+                        <input type="text" class="form-control" id="searchQuery" value="免疫染色" placeholder="輸入搜尋關鍵字">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">快速選擇日期範圍</label>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-outline-info" onclick="setDateRange('thisYear')">本年至今</button>
+                            <button class="btn btn-outline-info" onclick="setDateRange('lastYear')">去年</button>
+                            <button class="btn btn-outline-info" onclick="setDateRange('last2Years')">近兩年</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">標案類型</label>
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" name="tenderType" id="allType" value="all" checked>
+                            <label class="btn btn-outline-primary" for="allType">全部</label>
+                            
+                            <input type="radio" class="btn-check" name="tenderType" id="openType" value="open">
+                            <label class="btn btn-outline-success" for="openType">開標</label>
+                            
+                            <input type="radio" class="btn-check" name="tenderType" id="awardType" value="award">
+                            <label class="btn btn-outline-warning" for="awardType">決標</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">自訂日期範圍</label>
+                        <div class="row">
+                            <div class="col-6">
+                                <input type="date" class="form-control" id="startDate">
+                            </div>
+                            <div class="col-6">
+                                <input type="date" class="form-control" id="endDate">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label for="geminiKey" class="form-label fw-bold">Gemini API Key</label>
+                        <input type="password" class="form-control" id="geminiKey" placeholder="輸入您的 Gemini API Key">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="chatgptKey" class="form-label fw-bold">ChatGPT API Key</label>
+                        <input type="password" class="form-control" id="chatgptKey" placeholder="輸入您的 ChatGPT API Key">
+                    </div>
+                </div>
+                
+                <div class="text-center">
+                    <button class="btn btn-primary btn-lg me-3" onclick="performNormalSearch()">
+                        <i class="fas fa-search me-2"></i>一般搜尋
+                    </button>
+                    <button class="btn btn-success btn-lg" onclick="performGeminiSearch()">
+                        <i class="fas fa-robot me-2"></i>Gemini Agent 搜尋
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 載入中 -->
+        <div id="loadingSection" class="loading-spinner" style="display: none;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">載入中...</span>
+            </div>
+            <p class="mt-3 mb-0">正在搜尋標案資料...</p>
+        </div>
+
+        <!-- 搜尋結果比較 -->
+        <div id="comparisonResults" style="display: none;">
+            <div class="row">
+                <!-- 一般搜尋結果 -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="fas fa-search me-2"></i>一般搜尋結果</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="normalStats" class="stats-card mb-3"></div>
+                            <div id="normalResults"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gemini Agent 搜尋結果 -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0"><i class="fas fa-robot me-2"></i>Gemini Agent 搜尋結果</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="geminiStats" class="stats-card mb-3"></div>
+                            <div id="geminiResults"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        <!-- 比較分析 -->
+        <div class="card mt-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>搜尋結果比較分析</h5>
+            </div>
+            <div class="card-body">
+                <div id="comparisonAnalysis"></div>
+            </div>
+        </div>
+
+        <!-- 詳細結果查看 -->
+        <div class="card mt-4" id="detailResults" style="display: none;">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="fas fa-list me-2"></i>詳細結果查看</h5>
+            </div>
+            <div class="card-body">
+                <div id="detailContent"></div>
+            </div>
+        </div>
+        </div>
+
+        <!-- 錯誤訊息 -->
+        <div id="errorSection" style="display: none;">
+            <div class="alert alert-danger">
+                <h5><i class="fas fa-exclamation-triangle me-2"></i>搜尋失敗</h5>
+                <p id="errorMessage"></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = 'https://pcc-api.openfun.app/api';
+        let normalSearchResults = [];
+        let geminiSearchResults = [];
+
+        // 一般搜尋
+        async function performNormalSearch() {
+            showLoading(true);
+            hideError();
+            
+            try {
+                console.log('開始一般搜尋「免疫染色」...');
+                const results = await searchAllPages('title', '免疫染色');
+                console.log('一般搜尋結果:', results.length, '筆');
+                
+                normalSearchResults = results;
+                displayNormalResults(results);
+                showComparisonResults();
+                
+            } catch (error) {
+                console.error('一般搜尋錯誤:', error);
+                showError(`一般搜尋失敗：${error.message}`);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Gemini Agent 搜尋
+        async function performGeminiSearch() {
+            const geminiKey = document.getElementById('geminiKey').value.trim();
+            if (!geminiKey) {
+                showError('請先輸入 Gemini API Key');
+                return;
+            }
+
+            showLoading(true);
+            hideError();
+            
+            try {
+                console.log('開始 Gemini Agent 搜尋「免疫染色」...');
+                
+                // 1. 先進行基本搜尋
+                let sampleResults = await searchAllPages('title', '免疫染色');
+                console.log('初始搜尋結果:', sampleResults.length, '筆');
+                
+                if (sampleResults.length === 0) {
+                    // 嘗試更廣泛的搜尋
+                    const words = ['免疫', '染色', '檢驗'];
+                    let broaderResults = [];
+                    
+                    for (const word of words) {
+                        try {
+                            const wordResults = await searchAllPages('title', word);
+                            broaderResults = broaderResults.concat(wordResults);
+                            console.log(`關鍵字 "${word}" 搜尋結果:`, wordResults.length, '筆');
+                        } catch (error) {
+                            console.warn(`關鍵字 "${word}" 搜尋失敗:`, error);
+                        }
+                    }
+                    
+                    if (broaderResults.length > 0) {
+                        sampleResults = broaderResults.slice(0, 10);
+                    }
+                }
+
+                if (sampleResults.length === 0) {
+                    throw new Error('無法找到任何相關標案');
+                }
+
+                // 2. 使用 Gemini 分析
+                const analysisPrompt = `
+請分析以下政府採購標案的特徵，並提供相關的搜尋關鍵字建議：
+
+標案資料：
+${JSON.stringify(sampleResults.slice(0, 5), null, 2)}
+
+請分析：
+1. 標案的主要類型和領域
+2. 相關的技術關鍵字
+3. 可能涉及的產品或服務類別
+4. 相關的機關類型
+5. 建議的搜尋關鍵字（至少5個）
+
+請以 JSON 格式回應，包含以下欄位：
+{
+  "category": "標案類別",
+  "keywords": ["關鍵字1", "關鍵字2", "關鍵字3"],
+  "related_terms": ["相關術語1", "相關術語2"],
+  "product_types": ["產品類型1", "產品類型2"],
+  "agency_types": ["機關類型1", "機關類型2"]
+}
+`;
+
+                const analysisResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-goog-api-key': geminiKey
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: analysisPrompt
+                            }]
+                        }]
+                    })
+                });
+
+                if (!analysisResponse.ok) {
+                    throw new Error(`Gemini API 錯誤: ${analysisResponse.status}`);
+                }
+
+                const analysisData = await analysisResponse.json();
+                const analysisText = analysisData.candidates[0].content.parts[0].text;
+                
+                // 解析 Gemini 回應
+                let analysis;
+                try {
+                    const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        analysis = JSON.parse(jsonMatch[0]);
+                    } else {
+                        throw new Error('無法解析 Gemini 回應');
+                    }
+                } catch (parseError) {
+                    console.error('解析 Gemini 回應失敗:', parseError);
+                    analysis = {
+                        category: "醫療檢驗標案",
+                        keywords: ["免疫染色", "檢驗", "病理", "診斷", "醫療器材"],
+                        related_terms: ["免疫染色", "檢驗"],
+                        product_types: ["醫療器材", "檢驗試劑"],
+                        agency_types: ["醫院", "衛生機關"]
+                    };
+                }
+
+                console.log('Gemini 分析結果:', analysis);
+
+                // 3. 根據分析結果進行擴展搜尋
+                let allAgentResults = [...sampleResults];
+                const searchKeywords = analysis.keywords || ['免疫染色'];
+
+                // 搜尋相關關鍵字
+                for (const keyword of searchKeywords.slice(0, 3)) {
+                    if (keyword !== '免疫染色') {
+                        try {
+                            const keywordResults = await searchAllPages('title', keyword);
+                            allAgentResults = allAgentResults.concat(keywordResults);
+                            console.log(`關鍵字 "${keyword}" 搜尋結果:`, keywordResults.length, '筆');
+                        } catch (error) {
+                            console.warn(`關鍵字 "${keyword}" 搜尋失敗:`, error);
+                        }
+                    }
+                }
+
+                // 4. 去重複
+                allAgentResults = removeDuplicates(allAgentResults);
+                console.log('Gemini Agent 最終結果:', allAgentResults.length, '筆');
+
+                geminiSearchResults = allAgentResults;
+                displayGeminiResults(allAgentResults, analysis);
+                showComparisonResults();
+                
+            } catch (error) {
+                console.error('Gemini Agent 搜尋錯誤:', error);
+                showError(`Gemini Agent 搜尋失敗：${error.message}`);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 搜尋所有頁面
+        async function searchAllPages(searchType, query) {
+            let allResults = [];
+            let page = 1;
+            const maxPages = 3; // 限制頁數避免過多請求
+
+            while (page <= maxPages) {
+                try {
+                    const url = `${API_BASE}/searchby${searchType}?query=${encodeURIComponent(query)}&page=${page}`;
+                    const response = await fetch(url);
+                    
+                    if (!response.ok) {
+                        break;
+                    }
+                    
+                    const data = await response.json();
+                    const records = data.records || [];
+                    
+                    if (records.length === 0) {
+                        break;
+                    }
+                    
+                    allResults = allResults.concat(records);
+                    page++;
+                } catch (error) {
+                    console.error(`搜尋第 ${page} 頁錯誤:`, error);
+                    break;
+                }
+            }
+
+            return allResults;
+        }
+
+        // 去重複
+        function removeDuplicates(results) {
+            const seen = new Set();
+            return results.filter(record => {
+                const key = `${record.unit_id}-${record.job_number}-${record.date}`;
+                if (seen.has(key)) {
+                    return false;
+                }
+                seen.add(key);
+                return true;
+            });
+        }
+
+        // 顯示一般搜尋結果
+        function displayNormalResults(results) {
+            const statsDiv = document.getElementById('normalStats');
+            const resultsDiv = document.getElementById('normalResults');
+            
+            // 統計
+            const openCount = results.filter(r => r.brief?.type && (r.brief.type.includes('開標') || r.brief.type.includes('招標'))).length;
+            const awardCount = results.filter(r => r.brief?.type && (r.brief.type.includes('決標') || r.brief.type.includes('得標'))).length;
+            
+            statsDiv.innerHTML = `
+                <div class="stats-number">${results.length}</div>
+                <div>總計 | 開標: ${openCount} | 決標: ${awardCount}</div>
+            `;
+            
+            // 結果列表
+            resultsDiv.innerHTML = results.slice(0, 10).map((record, index) => {
+                const brief = record.brief || {};
+                const dateStr = record.date ? record.date.toString() : '';
+                const formattedDate = dateStr ? `${dateStr.substring(0,4)}年${dateStr.substring(4,6)}月${dateStr.substring(6,8)}日` : '未知';
+                
+                return `
+                    <div class="result-card p-3">
+                        <h6 class="text-primary">${brief.title || '無標題'}</h6>
+                        <p class="text-muted mb-1">
+                            <i class="fas fa-calendar me-1"></i>${formattedDate} | 
+                            <i class="fas fa-building me-1"></i>${record.unit_name || '未知機關'}
+                        </p>
+                        <span class="badge ${brief.type && brief.type.includes('決標') ? 'bg-danger' : 'bg-primary'}">${brief.type || '未知類型'}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 顯示 Gemini 搜尋結果
+        function displayGeminiResults(results, analysis) {
+            const statsDiv = document.getElementById('geminiStats');
+            const resultsDiv = document.getElementById('geminiResults');
+            
+            // 統計
+            const openCount = results.filter(r => r.brief?.type && (r.brief.type.includes('開標') || r.brief.type.includes('招標'))).length;
+            const awardCount = results.filter(r => r.brief?.type && (r.brief.type.includes('決標') || r.brief.type.includes('得標'))).length;
+            
+            statsDiv.innerHTML = `
+                <div class="stats-number">${results.length}</div>
+                <div>總計 | 開標: ${openCount} | 決標: ${awardCount}</div>
+                <small>類別: ${analysis.category}</small>
+            `;
+            
+            // 結果列表
+            resultsDiv.innerHTML = results.slice(0, 10).map((record, index) => {
+                const brief = record.brief || {};
+                const dateStr = record.date ? record.date.toString() : '';
+                const formattedDate = dateStr ? `${dateStr.substring(0,4)}年${dateStr.substring(4,6)}月${dateStr.substring(6,8)}日` : '未知';
+                
+                return `
+                    <div class="result-card p-3">
+                        <h6 class="text-success">${brief.title || '無標題'}</h6>
+                        <p class="text-muted mb-1">
+                            <i class="fas fa-calendar me-1"></i>${formattedDate} | 
+                            <i class="fas fa-building me-1"></i>${record.unit_name || '未知機關'}
+                        </p>
+                        <span class="badge ${brief.type && brief.type.includes('決標') ? 'bg-danger' : 'bg-primary'}">${brief.type || '未知類型'}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 顯示比較結果
+        function showComparisonResults() {
+            if (normalSearchResults.length > 0 || geminiSearchResults.length > 0) {
+                document.getElementById('comparisonResults').style.display = 'block';
+                performComparisonAnalysis();
+            }
+        }
+
+        // 執行比較分析
+        function performComparisonAnalysis() {
+            const analysisDiv = document.getElementById('comparisonAnalysis');
+            
+            const normalCount = normalSearchResults.length;
+            const geminiCount = geminiSearchResults.length;
+            
+            // 找出重複的標案
+            const normalKeys = new Set(normalSearchResults.map(r => `${r.unit_id}-${r.job_number}-${r.date}`));
+            const geminiKeys = new Set(geminiSearchResults.map(r => `${r.unit_id}-${r.job_number}-${r.date}`));
+            const commonKeys = new Set([...normalKeys].filter(key => geminiKeys.has(key)));
+            
+            const normalOnly = normalCount - commonKeys.size;
+            const geminiOnly = geminiCount - commonKeys.size;
+            
+            // 儲存分析結果供點擊使用
+            window.comparisonData = {
+                normalCount,
+                geminiCount,
+                commonKeys: commonKeys.size,
+                normalOnly,
+                geminiOnly,
+                normalResults: normalSearchResults,
+                geminiResults: geminiSearchResults,
+                commonResults: normalSearchResults.filter(r => commonKeys.has(`${r.unit_id}-${r.job_number}-${r.date}`)),
+                normalOnlyResults: normalSearchResults.filter(r => !geminiKeys.has(`${r.unit_id}-${r.job_number}-${r.date}`)),
+                geminiOnlyResults: geminiSearchResults.filter(r => !normalKeys.has(`${r.unit_id}-${r.job_number}-${r.date}`))
+            };
+            
+            analysisDiv.innerHTML = `
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-primary clickable-stat" data-type="normal" style="cursor: pointer;">${normalCount}</h4>
+                            <p>一般搜尋結果</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-success clickable-stat" data-type="gemini" style="cursor: pointer;">${geminiCount}</h4>
+                            <p>Gemini Agent 結果</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-info clickable-stat" data-type="common" style="cursor: pointer;">${commonKeys.size}</h4>
+                            <p>共同結果</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-warning clickable-stat" data-type="geminiOnly" style="cursor: pointer;">${geminiOnly}</h4>
+                            <p>Gemini 獨有</p>
+                        </div>
+                    </div>
+                </div>
+                <hr>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>一般搜尋特點：</h6>
+                        <ul>
+                            <li>直接搜尋「免疫染色」關鍵字</li>
+                            <li>結果較為精確但可能較少</li>
+                            <li>搜尋速度較快</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Gemini Agent 特點：</h6>
+                        <ul>
+                            <li>智能分析標案特徵</li>
+                            <li>擴展搜尋相關關鍵字</li>
+                            <li>結果更全面但可能包含不相關項目</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="text-center mt-3">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        點擊上方數字可查看詳細結果清單
+                    </small>
+                </div>
+            `;
+            
+            // 添加點擊事件監聽器
+            document.querySelectorAll('.clickable-stat').forEach(element => {
+                element.addEventListener('click', function() {
+                    const type = this.getAttribute('data-type');
+                    showDetailResults(type);
+                });
+            });
+        }
+
+        // 顯示詳細結果
+        function showDetailResults(type) {
+            const detailResults = document.getElementById('detailResults');
+            const detailContent = document.getElementById('detailContent');
+            
+            if (!window.comparisonData) {
+                return;
+            }
+            
+            let results = [];
+            let title = '';
+            let colorClass = '';
+            
+            switch(type) {
+                case 'normal':
+                    results = window.comparisonData.normalResults;
+                    title = '一般搜尋結果';
+                    colorClass = 'text-primary';
+                    break;
+                case 'gemini':
+                    results = window.comparisonData.geminiResults;
+                    title = 'Gemini Agent 搜尋結果';
+                    colorClass = 'text-success';
+                    break;
+                case 'common':
+                    results = window.comparisonData.commonResults;
+                    title = '共同搜尋結果';
+                    colorClass = 'text-info';
+                    break;
+                case 'geminiOnly':
+                    results = window.comparisonData.geminiOnlyResults;
+                    title = 'Gemini Agent 獨有結果';
+                    colorClass = 'text-warning';
+                    break;
+            }
+            
+            const resultsHtml = results.map((record, index) => {
+                const brief = record.brief || {};
+                const dateStr = record.date ? record.date.toString() : '';
+                const formattedDate = dateStr ? `${dateStr.substring(0,4)}年${dateStr.substring(4,6)}月${dateStr.substring(6,8)}日` : '未知';
+                
+                return `
+                    <div class="card mb-2">
+                        <div class="card-body p-3">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h6 class="${colorClass}">${brief.title || '無標題'}</h6>
+                                    <p class="text-muted mb-1">
+                                        <i class="fas fa-calendar me-1"></i>${formattedDate} | 
+                                        <i class="fas fa-building me-1"></i>${record.unit_name || '未知機關'}
+                                    </p>
+                                    <p class="text-muted mb-1">
+                                        <i class="fas fa-hashtag me-1"></i>案號: ${record.job_number || '未知'} | 
+                                        <i class="fas fa-tag me-1"></i>分類: ${brief.category || '未知'}
+                                    </p>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <span class="badge ${brief.type && brief.type.includes('決標') ? 'bg-danger' : 'bg-primary'}">${brief.type || '未知類型'}</span>
+                                    <br>
+                                    <small class="text-muted">${record.detail?.['採購資料:預算金額'] || '金額未知'}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            detailContent.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="${colorClass}">${title} (${results.length} 筆)</h5>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="hideDetailResults()">
+                        <i class="fas fa-times me-1"></i>關閉
+                    </button>
+                </div>
+                <div class="results-list">
+                    ${resultsHtml || '<p class="text-muted text-center">無結果</p>'}
+                </div>
+            `;
+            
+            detailResults.style.display = 'block';
+            detailResults.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // 隱藏詳細結果
+        function hideDetailResults() {
+            document.getElementById('detailResults').style.display = 'none';
+        }
+
+        // 設定日期範圍
+        function setDateRange(type) {
+            const today = new Date();
+            const startDateInput = document.getElementById('startDate');
+            const endDateInput = document.getElementById('endDate');
+            
+            let startDate, endDate;
+            
+            switch(type) {
+                case 'thisYear':
+                    startDate = new Date(today.getFullYear(), 0, 1);
+                    endDate = today;
+                    break;
+                case 'lastYear':
+                    startDate = new Date(today.getFullYear() - 1, 0, 1);
+                    endDate = new Date(today.getFullYear() - 1, 11, 31);
+                    break;
+                case 'last2Years':
+                    startDate = new Date(today.getFullYear() - 2, 0, 1);
+                    endDate = today;
+                    break;
+            }
+            
+            startDateInput.value = startDate.toISOString().split('T')[0];
+            endDateInput.value = endDate.toISOString().split('T')[0];
+        }
+
+        // 顯示載入中
+        function showLoading(show) {
+            document.getElementById('loadingSection').style.display = show ? 'block' : 'none';
+        }
+
+        // 顯示錯誤
+        function showError(message) {
+            document.getElementById('errorSection').style.display = 'block';
+            document.getElementById('errorMessage').textContent = message;
+        }
+
+        // 隱藏錯誤
+        function hideError() {
+            document.getElementById('errorSection').style.display = 'none';
+        }
+
+        // 執行一般搜尋
+        async function performNormalSearch() {
+            const searchQuery = document.getElementById('searchQuery').value.trim();
+            if (!searchQuery) {
+                showMessage('請輸入搜尋關鍵字', 'error');
+                return;
+            }
+
+            showLoading(true);
+            hideMessage();
+            
+            try {
+                const results = await searchAllPages('title', searchQuery);
+                normalSearchResults = results;
+                
+                displayNormalResults(results);
+                checkBothSearchesComplete();
+                
+            } catch (error) {
+                console.error('一般搜尋錯誤:', error);
+                showMessage(`一般搜尋失敗：${error.message}`, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 執行 Gemini Agent 搜尋
+        async function performGeminiSearch() {
+            const geminiKey = document.getElementById('geminiKey').value.trim();
+            const searchQuery = document.getElementById('searchQuery').value.trim();
+            
+            if (!geminiKey) {
+                showMessage('請先輸入 Gemini API Key', 'error');
+                return;
+            }
+            
+            if (!searchQuery) {
+                showMessage('請輸入搜尋關鍵字', 'error');
+                return;
+            }
+
+            showLoading(true);
+            hideMessage();
+            
+            try {
+                const results = await performGeminiAgentSearch(searchQuery, geminiKey);
+                geminiSearchResults = results;
+                
+                displayGeminiResults(results);
+                checkBothSearchesComplete();
+                
+            } catch (error) {
+                console.error('Gemini 搜尋錯誤:', error);
+                showMessage(`Gemini 搜尋失敗：${error.message}`, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 搜尋所有頁面
+        async function searchAllPages(searchType, query) {
+            const API_BASE = 'https://pcc-api.openfun.app/api';
+            let allResults = [];
+            let page = 1;
+            const maxPages = 5; // 限制最多搜尋5頁避免過多請求
+            
+            while (page <= maxPages) {
+                try {
+                    const url = `${API_BASE}/searchby${searchType}?query=${encodeURIComponent(query)}&page=${page}`;
+                    const response = await fetch(url);
+                    
+                    if (!response.ok) {
+                        throw new Error(`API 請求失敗: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    const results = data.records || [];
+                    
+                    if (results.length === 0) {
+                        break; // 沒有更多結果
+                    }
+                    
+                    allResults = allResults.concat(results);
+                    page++;
+                    
+                } catch (error) {
+                    console.error(`搜尋第 ${page} 頁時發生錯誤:`, error);
+                    break;
+                }
+            }
+            
+            return allResults;
+        }
+
+        // Gemini Agent 搜尋
+        async function performGeminiAgentSearch(query, geminiKey) {
+            // 1. 先進行基本搜尋獲取樣本資料
+            let sampleResults = await searchAllPages('title', query);
+            
+            if (sampleResults.length === 0) {
+                // 如果沒有找到結果，嘗試更廣泛的搜尋
+                const words = query.split(/\s+/).filter(word => word.length > 1);
+                let broaderResults = [];
+                
+                for (const word of words.slice(0, 3)) {
+                    try {
+                        const wordResults = await searchAllPages('title', word);
+                        broaderResults = broaderResults.concat(wordResults);
+                    } catch (error) {
+                        console.warn(`關鍵字 "${word}" 搜尋失敗:`, error);
+                    }
+                }
+                
+                if (broaderResults.length === 0) {
+                    throw new Error('未找到相關標案');
+                }
+                
+                sampleResults = broaderResults.slice(0, 10);
+            }
+
+            // 2. 使用 Gemini 分析標案特徵
+            const analysisPrompt = `
+請分析以下政府採購標案的特徵，並提供相關的搜尋關鍵字建議：
+
+標案資料：
+${JSON.stringify(sampleResults.slice(0, 5), null, 2)}
+
+請分析：
+1. 標案的主要類型和領域
+2. 相關的技術關鍵字
+3. 可能涉及的產品或服務類別
+4. 相關的機關類型
+5. 建議的搜尋關鍵字（至少5個）
+
+請以 JSON 格式回應，包含以下欄位：
+{
+  "category": "標案類別",
+  "keywords": ["關鍵字1", "關鍵字2", "關鍵字3"],
+  "related_terms": ["相關術語1", "相關術語2"],
+  "product_types": ["產品類型1", "產品類型2"],
+  "agency_types": ["機關類型1", "機關類型2"]
+}
+`;
+
+            const analysisResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-goog-api-key': geminiKey
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: analysisPrompt
+                        }]
+                    }]
+                })
+            });
+
+            if (!analysisResponse.ok) {
+                throw new Error(`Gemini API 錯誤: ${analysisResponse.status}`);
+            }
+
+            const analysisData = await analysisResponse.json();
+            const analysisText = analysisData.candidates[0].content.parts[0].text;
+            
+            // 解析 Gemini 回應
+            let analysis;
+            try {
+                const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    analysis = JSON.parse(jsonMatch[0]);
+                } else {
+                    throw new Error('無法解析 Gemini 回應');
+                }
+            } catch (parseError) {
+                console.error('解析 Gemini 回應失敗:', parseError);
+                analysis = {
+                    category: "政府採購標案",
+                    keywords: [query, "採購", "標案", "招標", "決標"],
+                    related_terms: [query],
+                    product_types: ["服務", "產品"],
+                    agency_types: ["政府機關"]
+                };
+            }
+
+            // 3. 根據分析結果進行擴展搜尋
+            let allAgentResults = [...sampleResults];
+            const searchKeywords = analysis.keywords || [query];
+
+            // 搜尋相關關鍵字
+            for (const keyword of searchKeywords.slice(0, 3)) {
+                if (keyword !== query) {
+                    try {
+                        const keywordResults = await searchAllPages('title', keyword);
+                        allAgentResults = allAgentResults.concat(keywordResults);
+                    } catch (error) {
+                        console.warn(`關鍵字 "${keyword}" 搜尋失敗:`, error);
+                    }
+                }
+            }
+
+            // 4. 去重複
+            const uniqueResults = [];
+            const seen = new Set();
+            
+            for (const result of allAgentResults) {
+                const key = `${result.unit_id}-${result.job_number}-${result.date}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    uniqueResults.push(result);
+                }
+            }
+
+            return uniqueResults;
+        }
+
+        // 顯示一般搜尋結果
+        function displayNormalResults(results) {
+            const container = document.getElementById('normalResults');
+            container.innerHTML = results.map((record, index) => createResultItem(record, index)).join('');
+        }
+
+        // 顯示 Gemini 搜尋結果
+        function displayGeminiResults(results) {
+            const container = document.getElementById('geminiResults');
+            container.innerHTML = results.map((record, index) => createResultItem(record, index, true)).join('');
+        }
+
+        // 創建結果項目
+        function createResultItem(record, index, isGeminiSearch = false) {
+            const brief = record.brief || {};
+            const dateStr = record.date ? record.date.toString() : '';
+            const formattedDate = dateStr ? `${dateStr.substring(0,4)}年${dateStr.substring(4,6)}月${dateStr.substring(6,8)}日` : '未知';
+            
+            return `
+                <div class="result-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="card-title text-primary mb-0">${brief.title || '無標題'}</h6>
+                            <span class="badge ${brief.type && brief.type.includes('決標') ? 'bg-danger' : 'bg-primary'}">${brief.type || '未知類型'}</span>
+                        </div>
+                        <p class="card-text text-muted mb-1">
+                            <i class="fas fa-calendar me-1"></i>${formattedDate} | 
+                            <i class="fas fa-building me-1"></i>${record.unit_name || '未知機關'}
+                        </p>
+                        <p class="card-text text-muted mb-0">
+                            <i class="fas fa-hashtag me-1"></i>案號: ${record.job_number || '未知'} | 
+                            <i class="fas fa-tag me-1"></i>分類: ${brief.category || '未知'}
+                        </p>
+                        ${isGeminiSearch ? '<span class="text-warning"><i class="fas fa-star"></i> Gemini 推薦</span>' : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 檢查兩個搜尋是否都完成
+        function checkBothSearchesComplete() {
+            if (normalSearchResults.length > 0 || geminiSearchResults.length > 0) {
+                document.getElementById('comparisonResults').style.display = 'block';
+                performComparisonAnalysis();
+            }
+        }
+
+        // 顯示訊息
+        function showMessage(message, type = 'info') {
+            // 這裡可以添加訊息顯示邏輯
+            console.log(`${type.toUpperCase()}: ${message}`);
+        }
+
+        // 隱藏訊息
+        function hideMessage() {
+            // 這裡可以添加隱藏訊息的邏輯
+        }
+    </script>
+</body>
+</html>

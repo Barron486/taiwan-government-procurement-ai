@@ -1,0 +1,33 @@
+# 系統檔案
+.DS_Store
+Thumbs.db
+
+# 編輯器檔案
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 暫存檔案
+*.tmp
+*.temp
+*.log
+
+# 備份檔案
+*.bak
+*.backup
+
+# 測試檔案
+test_*.html
+*_test.html
+
+# API Key 檔案（如果有的話）
+.env
+config.js
+secrets.js
+
+# 其他
+node_modules/
+dist/
+build/

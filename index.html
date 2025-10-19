@@ -1,0 +1,2341 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>台灣政府採購公告查詢系統 - AI 分析版</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif;
+        }
+        .main-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            margin: 20px auto;
+            max-width: 1400px;
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .search-section {
+            padding: 30px;
+        }
+        .time-shortcuts {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .time-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            border: none;
+            border-radius: 25px;
+            padding: 10px 20px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .time-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+        .time-btn.active {
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 25px;
+            padding: 15px 40px;
+            font-weight: 600;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+        .result-item {
+            border: none;
+            border-radius: 15px;
+            background: white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+            padding: 25px;
+            transition: all 0.3s ease;
+        }
+        .result-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+        }
+        .ai-analysis {
+            background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .ai-loading {
+            text-align: center;
+            padding: 20px;
+        }
+        .spinner-border {
+            width: 2rem;
+            height: 2rem;
+        }
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .company-btn {
+            transition: all 0.2s ease;
+        }
+        .company-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stats-number {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        .company-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 20px;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            margin: 2px;
+            display: inline-block;
+        }
+        .ai-insights {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 10px 10px 0;
+        }
+        .ai-insights h6 {
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .date-range {
+            background: #e3f2fd;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .date-range h6 {
+            color: #1976d2;
+            margin-bottom: 10px;
+        }
+        .date-display {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1976d2;
+        }
+        
+        /* 彈出式通知樣式 */
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            max-width: 500px;
+            width: 90%;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            animation: slideDown 0.3s ease-out;
+        }
+        
+        .notification.error {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            color: white;
+        }
+        
+        .notification.success {
+            background: linear-gradient(135deg, #51cf66 0%, #40c057 100%);
+            color: white;
+        }
+        
+        .notification.info {
+            background: linear-gradient(135deg, #339af0 0%, #228be6 100%);
+            color: white;
+        }
+        
+        .notification.warning {
+            background: linear-gradient(135deg, #ffd43b 0%, #fab005 100%);
+            color: #333;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+        
+        .notification-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px 10px;
+        }
+        
+        .notification-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin: 0;
+        }
+        
+        .notification-close {
+            background: none;
+            border: none;
+            color: inherit;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.2s ease;
+        }
+        
+        .notification-close:hover {
+            background-color: rgba(255,255,255,0.2);
+        }
+        
+        .notification-body {
+            padding: 0 20px 15px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+        @media (max-width: 768px) {
+            .main-container {
+                margin: 10px;
+                border-radius: 15px;
+            }
+            .time-shortcuts {
+                justify-content: center;
+            }
+            .time-btn {
+                flex: 1;
+                min-width: 80px;
+            }
+        }
+        /* 對話窗口樣式 */
+        .chat-message {
+            margin-bottom: 15px;
+        }
+        
+        .user-message .message-content {
+            background: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 18px 18px 4px 18px;
+            display: inline-block;
+            max-width: 80%;
+            margin-left: auto;
+        }
+        
+        .bot-message .message-content {
+            background: #f8f9fa;
+            color: #333;
+            padding: 10px 15px;
+            border-radius: 18px 18px 18px 4px;
+            display: inline-block;
+            max-width: 80%;
+            border: 1px solid #dee2e6;
+        }
+        
+        .chat-messages {
+            scroll-behavior: smooth;
+        }
+        
+        .message-text {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-search me-3"></i>台灣政府採購公告查詢系統</h1>
+            <p><i class="fas fa-robot me-2"></i>AI 智能分析版 - 直接連接政府採購 API</p>
+        </div>
+
+        <!-- Search Section -->
+        <div class="search-section">
+            <!-- Search Form -->
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        <i class="fas fa-search me-2"></i>搜尋條件
+                    </h5>
+                    
+                    <!-- 搜尋關鍵字欄位 -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <label for="titleQuery" class="form-label fw-bold">標案名稱</label>
+                            <input type="text" class="form-control" id="titleQuery" placeholder="輸入標案名稱關鍵字">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="companyNameQuery" class="form-label fw-bold">公司名稱</label>
+                            <input type="text" class="form-control" id="companyNameQuery" placeholder="輸入公司名稱關鍵字">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="companyIdQuery" class="form-label fw-bold">統一編號</label>
+                            <input type="text" class="form-control" id="companyIdQuery" placeholder="輸入統一編號">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="unitQuery" class="form-label fw-bold">機關代碼</label>
+                            <input type="text" class="form-control" id="unitQuery" placeholder="輸入機關代碼">
+                        </div>
+                    </div>
+                    
+                    <!-- 搜尋邏輯選擇 -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">搜尋邏輯</label>
+                            <div class="btn-group" role="group">
+                                <input type="radio" class="btn-check" name="searchLogic" id="searchAnd" value="and" checked>
+                                <label class="btn btn-outline-primary" for="searchAnd">
+                                    <i class="fas fa-plus me-1"></i>AND (且)
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="searchLogic" id="searchOr" value="or">
+                                <label class="btn btn-outline-success" for="searchOr">
+                                    <i class="fas fa-arrows-alt-h me-1"></i>OR (或)
+                                </label>
+                            </div>
+                            <small class="form-text text-muted ms-2">
+                                AND：所有條件都必須符合 | OR：任一條件符合即可
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <!-- 日期區間選擇 -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label for="startDate" class="form-label fw-bold">開始日期</label>
+                            <input type="date" class="form-control" id="startDate">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="endDate" class="form-label fw-bold">結束日期</label>
+                            <input type="date" class="form-control" id="endDate">
+                        </div>
+                    </div>
+                    
+                    <!-- 快速日期選擇和標案類型 -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">快速選擇日期範圍</label>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-secondary" onclick="setDateRange('today')">今日</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="setDateRange('last3days')">近3天</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="setDateRange('last7days')">近7天</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="setDateRange('last30days')">近30天</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="setDateRange('thisYear')">本年至今</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="setDateRange('all')">全部</button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">標案類型</label>
+                            <div class="btn-group" role="group">
+                                <input type="radio" class="btn-check" name="tenderType" id="allType" value="all" checked>
+                                <label class="btn btn-outline-primary" for="allType">全部</label>
+                                
+                                <input type="radio" class="btn-check" name="tenderType" id="openType" value="open">
+                                <label class="btn btn-outline-success" for="openType">開標</label>
+                                
+                                <input type="radio" class="btn-check" name="tenderType" id="awardType" value="award">
+                                <label class="btn btn-outline-warning" for="awardType">決標</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- API Key 設定 -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label for="geminiKey" class="form-label fw-bold">Gemini API Key</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="geminiKey" placeholder="輸入您的 Gemini API Key">
+                                <button class="btn btn-outline-info" type="button" onclick="showGeminiHelp()" title="如何取得 Gemini API Key">
+                                    <i class="fas fa-question-circle"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="chatgptKey" class="form-label fw-bold">ChatGPT API Key</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="chatgptKey" placeholder="輸入您的 ChatGPT API Key">
+                                <button class="btn btn-outline-info" type="button" onclick="showChatGPTHelp()" title="如何取得 ChatGPT API Key">
+                                    <i class="fas fa-question-circle"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 搜尋按鈕 -->
+                    <div class="row">
+                        <div class="col-12 d-flex justify-content-between align-items-center">
+                            <div>
+                                <button type="button" class="btn btn-primary btn-lg me-3" onclick="performSearch()">
+                                    <i class="fas fa-search me-2"></i>搜尋標案
+                                </button>
+                                <button type="button" class="btn btn-success btn-lg me-3" onclick="performGeminiAgentSearch()" id="geminiAgentBtn" disabled>
+                                    <i class="fas fa-robot me-2"></i>Gemini Agent 搜尋
+                                </button>
+                                <button type="button" class="btn btn-secondary btn-lg me-3" onclick="clearSearch()">
+                                    <i class="fas fa-times me-2"></i>清除
+                                </button>
+                                <button type="button" class="btn btn-info btn-lg" onclick="showSearchHelp()">
+                                    <i class="fas fa-question-circle me-2"></i>搜尋說明
+                                </button>
+                            </div>
+                            <div class="text-muted small">
+                                <i class="fas fa-info-circle me-1"></i>
+                                可同時使用多個搜尋條件，系統會自動組合搜尋
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div id="loadingSpinner" class="text-center mt-4" style="display: none;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">載入中...</span>
+                </div>
+                <p class="mt-3 mb-0">正在搜尋政府採購資料...</p>
+            </div>
+
+            <!-- AI Analysis Loading -->
+            <div id="aiLoading" class="ai-loading" style="display: none;">
+                <div class="spinner-border text-warning" role="status">
+                    <span class="visually-hidden">AI 分析中...</span>
+                </div>
+                <p class="mt-3 mb-0"><i class="fas fa-robot me-2"></i>Gemini AI 正在分析標案內容...</p>
+            </div>
+
+            <!-- Messages -->
+            <div id="messageArea"></div>
+
+            <!-- Search Results -->
+            <div id="searchResults" class="mt-4" style="display: none;">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-list me-2"></i>搜尋結果</h5>
+                            <div class="d-flex align-items-center">
+                                <div id="resultStats" class="text-muted me-3"></div>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="clearSearchResults()" title="清除搜尋結果">
+                                    <i class="fas fa-times me-1"></i>清除結果
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- 搜尋結果過濾器 -->
+                        <div class="row mb-3" id="resultFilters" style="display: none;">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">過濾標案類型</label>
+                                <div class="btn-group" role="group">
+                                    <input type="radio" class="btn-check" name="resultFilter" id="filterAll" value="all" checked>
+                                    <label class="btn btn-outline-primary" for="filterAll">全部</label>
+                                    
+                                    <input type="radio" class="btn-check" name="resultFilter" id="filterOpen" value="open">
+                                    <label class="btn btn-outline-success" for="filterOpen">開標</label>
+                                    
+                                    <input type="radio" class="btn-check" name="resultFilter" id="filterAward" value="award">
+                                    <label class="btn btn-outline-danger" for="filterAward">決標</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">排序方式</label>
+                                <select class="form-select" id="sortBy" onchange="sortResults()">
+                                    <option value="date_desc">日期（新到舊）</option>
+                                    <option value="date_asc">日期（舊到新）</option>
+                                    <option value="title">標案名稱</option>
+                                    <option value="unit">機關名稱</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div id="resultsList"></div>
+                        <div id="pagination" class="mt-4"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Analysis Results -->
+            <div id="aiAnalysisResults" class="mt-4" style="display: none;">
+                <div class="ai-analysis">
+                    <h5><i class="fas fa-robot me-2"></i>Gemini AI 分析結果</h5>
+                    <div id="aiContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI 對話窗口 -->
+    <div class="modal fade" id="chatModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-comments me-2"></i>AI 對話助手</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="chatMessages" class="chat-messages" style="height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin-bottom: 15px; background-color: #f8f9fa;">
+                        <!-- 對話內容將在這裡顯示 -->
+                    </div>
+                    <div class="input-group">
+                        <input type="text" id="chatInput" class="form-control" placeholder="請輸入您的問題..." onkeypress="handleChatKeyPress(event)">
+                        <button class="btn btn-primary" onclick="sendChatMessage()">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        const API_BASE = 'https://pcc-api.openfun.app/api';
+        let currentTimeRange = 0; // 0 = 今日
+        let searchResults = [];
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 設置預設日期為今日
+            setDateRange('today');
+            
+            // 添加過濾器事件監聽器
+            document.querySelectorAll('input[name="resultFilter"]').forEach(radio => {
+                radio.addEventListener('change', filterAndDisplayResults);
+            });
+            
+            // 監聽 Gemini API Key 輸入
+            const geminiKeyInput = document.getElementById('geminiKey');
+            const geminiAgentBtn = document.getElementById('geminiAgentBtn');
+            
+            geminiKeyInput.addEventListener('input', function() {
+                if (this.value.trim().length > 0) {
+                    geminiAgentBtn.disabled = false;
+                    geminiAgentBtn.classList.remove('btn-success');
+                    geminiAgentBtn.classList.add('btn-success');
+                } else {
+                    geminiAgentBtn.disabled = true;
+                    geminiAgentBtn.classList.remove('btn-success');
+                    geminiAgentBtn.classList.add('btn-secondary');
+                }
+            });
+            
+            showMessage('歡迎使用 AI 智能分析版！請輸入搜尋條件開始搜尋。', 'success');
+        });
+
+        // 設置時間範圍
+        function setTimeRange(days) {
+            currentTimeRange = days;
+            
+            // 更新按鈕狀態
+            document.querySelectorAll('.time-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            updateDateDisplay();
+        }
+
+        // 更新日期顯示
+        function updateDateDisplay() {
+            const today = new Date();
+            const dateDisplay = document.getElementById('dateDisplay');
+            
+            if (currentTimeRange === 0) {
+                const todayStr = formatDate(today);
+                dateDisplay.textContent = `搜尋今日 (${todayStr}) 的標案`;
+            } else if (currentTimeRange === 'custom') {
+                dateDisplay.textContent = '自訂時間範圍';
+            } else {
+                const startDate = new Date(today);
+                startDate.setDate(today.getDate() - currentTimeRange);
+                const startStr = formatDate(startDate);
+                const endStr = formatDate(today);
+                dateDisplay.textContent = `搜尋 ${startStr} 至 ${endStr} 的標案`;
+            }
+        }
+
+        // 格式化日期
+        function formatDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}年${month}月${day}日`;
+        }
+
+        // 顯示自訂範圍
+        function showCustomRange() {
+            const startDate = prompt('請輸入開始日期 (YYYYMMDD):', '20241201');
+            const endDate = prompt('請輸入結束日期 (YYYYMMDD):', '20241219');
+            
+            if (startDate && endDate) {
+                currentTimeRange = 'custom';
+                document.getElementById('dateDisplay').textContent = 
+                    `搜尋 ${startDate} 至 ${endDate} 的標案`;
+            }
+        }
+
+        // 更新表單欄位
+        function updateFormFields() {
+            const searchType = document.getElementById('searchType').value;
+            const unitInput = document.getElementById('unitInput');
+            
+            if (searchType === 'unit') {
+                unitInput.style.display = 'block';
+            } else {
+                unitInput.style.display = 'none';
+            }
+        }
+
+        // 清除表單
+        function clearSearch() {
+            document.getElementById('titleQuery').value = '';
+            document.getElementById('companyNameQuery').value = '';
+            document.getElementById('companyIdQuery').value = '';
+            document.getElementById('unitQuery').value = '';
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+            document.getElementById('allType').checked = true; // 重置為全部
+            document.getElementById('searchResults').style.display = 'none';
+            document.getElementById('aiAnalysisResults').style.display = 'none';
+            document.getElementById('messageArea').innerHTML = '';
+            showMessage('表單已清除，請重新輸入搜尋條件。', 'success');
+        }
+        
+        // 設定日期範圍
+        function setDateRange(range) {
+            const today = new Date();
+            const startDateInput = document.getElementById('startDate');
+            const endDateInput = document.getElementById('endDate');
+            
+            switch(range) {
+                case 'today':
+                    const todayStr = today.toISOString().split('T')[0];
+                    startDateInput.value = todayStr;
+                    endDateInput.value = todayStr;
+                    break;
+                case 'last3days':
+                    const threeDaysAgo = new Date(today);
+                    threeDaysAgo.setDate(today.getDate() - 3);
+                    startDateInput.value = threeDaysAgo.toISOString().split('T')[0];
+                    endDateInput.value = today.toISOString().split('T')[0];
+                    break;
+                case 'last7days':
+                    const sevenDaysAgo = new Date(today);
+                    sevenDaysAgo.setDate(today.getDate() - 7);
+                    startDateInput.value = sevenDaysAgo.toISOString().split('T')[0];
+                    endDateInput.value = today.toISOString().split('T')[0];
+                    break;
+                case 'last30days':
+                    const thirtyDaysAgo = new Date(today);
+                    thirtyDaysAgo.setDate(today.getDate() - 30);
+                    startDateInput.value = thirtyDaysAgo.toISOString().split('T')[0];
+                    endDateInput.value = today.toISOString().split('T')[0];
+                    break;
+                case 'thisYear':
+                    const thisYear = today.getFullYear();
+                    const yearStart = new Date(thisYear, 0, 1); // 1月1日
+                    startDateInput.value = yearStart.toISOString().split('T')[0];
+                    endDateInput.value = today.toISOString().split('T')[0];
+                    break;
+                case 'all':
+                    startDateInput.value = '';
+                    endDateInput.value = '';
+                    break;
+            }
+        }
+        
+        // 過濾日期範圍
+        function filterByDateRange(results, startDate, endDate) {
+            return results.filter(record => {
+                const recordDate = record.date.toString();
+                const recordDateStr = recordDate.substring(0, 4) + '-' + 
+                                    recordDate.substring(4, 6) + '-' + 
+                                    recordDate.substring(6, 8);
+                
+                if (startDate && recordDateStr < startDate) return false;
+                if (endDate && recordDateStr > endDate) return false;
+                return true;
+            });
+        }
+        
+        // 過濾標案類型
+        function filterByTenderType(results, tenderType) {
+            return results.filter(record => {
+                const type = record.brief?.type || '';
+                
+                if (tenderType === 'open') {
+                    // 開標：包含「公開招標」、「公開取得」等招標階段
+                    return type.includes('公開招標') || 
+                           type.includes('公開取得') || 
+                           type.includes('公開徵求') ||
+                           type.includes('限制性招標') ||
+                           type.includes('選擇性招標') ||
+                           type.includes('招標公告');
+                } else if (tenderType === 'award') {
+                    // 決標：包含「決標」、「得標」等決標階段
+                    return type.includes('決標') || 
+                           type.includes('得標') ||
+                           type.includes('定期契約') ||
+                           type.includes('開口合約') ||
+                           type.includes('無法決標');
+                }
+                
+                return true;
+            });
+        }
+        
+        // 去重複
+        function removeDuplicates(results) {
+            const seen = new Set();
+            return results.filter(record => {
+                const key = record.job_number + '_' + record.unit_id;
+                if (seen.has(key)) {
+                    return false;
+                }
+                seen.add(key);
+                return true;
+            });
+        }
+        
+        // 根據公司名稱過濾結果（AND 邏輯用）
+        function filterByCompanyName(results, companyName) {
+            return results.filter(record => {
+                const companies = record.brief?.companies?.names || [];
+                return companies.some(name => 
+                    name.toLowerCase().includes(companyName.toLowerCase())
+                );
+            });
+        }
+        
+        // 根據統一編號過濾結果（AND 邏輯用）
+        function filterByCompanyId(results, companyId) {
+            return results.filter(record => {
+                const companies = record.brief?.companies?.ids || [];
+                return companies.some(id => 
+                    id.includes(companyId)
+                );
+            });
+        }
+        
+        // 根據機關代碼過濾結果（AND 邏輯用）
+        function filterByUnitId(results, unitId) {
+            return results.filter(record => {
+                return record.unit_id && record.unit_id.includes(unitId);
+            });
+        }
+        
+        // 顯示搜尋說明
+        function showSearchHelp() {
+            const helpText = `
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle me-2"></i>搜尋說明</h6>
+                    <ul class="mb-0">
+                        <li><strong>搜尋邏輯：</strong>
+                            <ul>
+                                <li><strong>AND (且)：</strong>所有填寫的條件都必須符合，結果更精確</li>
+                                <li><strong>OR (或)：</strong>任一條件符合即可，結果更廣泛</li>
+                            </ul>
+                        </li>
+                        <li><strong>搜尋欄位：</strong>
+                            <ul>
+                                <li><strong>標案名稱：</strong>搜尋標案標題中包含的關鍵字</li>
+                                <li><strong>公司名稱：</strong>搜尋投標廠商名稱</li>
+                                <li><strong>統一編號：</strong>搜尋特定公司的統一編號</li>
+                                <li><strong>機關代碼：</strong>搜尋特定機關的標案</li>
+                            </ul>
+                        </li>
+                        <li><strong>Gemini Agent 搜尋：</strong>
+                            <ul>
+                                <li><strong>智能分析：</strong>AI 會分析標案特徵並找出同類型案件</li>
+                                <li><strong>自動擴展：</strong>根據分析結果自動搜尋相關關鍵字</li>
+                                <li><strong>智能排序：</strong>按相關性重新排序搜尋結果</li>
+                                <li><strong>需要 API Key：</strong>必須先設定 Gemini API Key</li>
+                            </ul>
+                        </li>
+                        <li><strong>日期範圍：</strong>可選擇開始和結束日期來篩選標案發布時間</li>
+                        <li><strong>快速選擇：</strong>使用快速按鈕快速設定常用的日期範圍（包含「本年至今」）</li>
+                    </ul>
+                </div>
+            `;
+            showMessage(helpText, 'info');
+        }
+        
+        // 顯示 Gemini API Key 說明
+        function showGeminiHelp() {
+            const helpText = `
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-key me-2"></i>如何取得 Gemini API Key</h6>
+                    <ol>
+                        <li>前往 <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-decoration-none">Google AI Studio</a></li>
+                        <li>使用您的 Google 帳號登入</li>
+                        <li>點擊「Create API Key」按鈕</li>
+                        <li>複製生成的 API Key</li>
+                        <li>將 API Key 貼到上方輸入框中</li>
+                    </ol>
+                    <p class="mb-0 mt-2">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            設定 API Key 後即可使用 AI 對話和分析功能
+                        </small>
+                    </p>
+                </div>
+            `;
+            showMessage(helpText, 'info');
+        }
+
+        // 顯示訊息
+        function showMessage(message, type = 'info') {
+            const messageArea = document.getElementById('messageArea');
+            const alertClass = type === 'error' ? 'alert-danger' : 'alert-success';
+            messageArea.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    messageArea.innerHTML = '';
+                }, 3000);
+            }
+        }
+
+        // 執行搜尋
+        async function performSearch() {
+            // 取得所有搜尋條件
+            const titleQuery = document.getElementById('titleQuery').value.trim();
+            const companyNameQuery = document.getElementById('companyNameQuery').value.trim();
+            const companyIdQuery = document.getElementById('companyIdQuery').value.trim();
+            const unitQuery = document.getElementById('unitQuery').value.trim();
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const tenderType = document.querySelector('input[name="tenderType"]:checked').value;
+            const searchLogic = document.querySelector('input[name="searchLogic"]:checked').value;
+            
+            console.log('搜尋條件:', { titleQuery, companyNameQuery, companyIdQuery, unitQuery, tenderType, searchLogic });
+            
+            // 檢查是否有任何搜尋條件
+            if (!titleQuery && !companyNameQuery && !companyIdQuery && !unitQuery) {
+                showMessage('請至少輸入一個搜尋條件', 'error');
+                return;
+            }
+            
+            showLoading(true);
+            hideMessage();
+            
+            try {
+                let allResults = [];
+                let searchCount = 0;
+                
+                // 根據搜尋邏輯決定搜尋方式
+                if (searchLogic === 'and') {
+                    // AND 邏輯：所有條件都必須符合
+                    console.log('使用 AND 邏輯搜尋');
+                    
+                    // 先搜尋第一個條件
+                    let currentResults = [];
+                    if (titleQuery) {
+                        console.log('開始標案名稱搜尋:', titleQuery);
+                        currentResults = await searchAllPages('title', titleQuery);
+                        console.log('標案名稱搜尋結果:', currentResults.length, '筆');
+                        searchCount++;
+                    } else if (companyNameQuery) {
+                        console.log('開始公司名稱搜尋:', companyNameQuery);
+                        currentResults = await searchAllPages('companyname', companyNameQuery);
+                        console.log('公司名稱搜尋結果:', currentResults.length, '筆');
+                        searchCount++;
+                    } else if (companyIdQuery) {
+                        console.log('開始統一編號搜尋:', companyIdQuery);
+                        currentResults = await searchAllPages('companyid', companyIdQuery);
+                        console.log('統一編號搜尋結果:', currentResults.length, '筆');
+                        searchCount++;
+                    } else if (unitQuery) {
+                        console.log('開始機關代碼搜尋:', unitQuery);
+                        currentResults = await searchAllPages('unit', unitQuery);
+                        console.log('機關代碼搜尋結果:', currentResults.length, '筆');
+                        searchCount++;
+                    }
+                    
+                    // 對結果進行其他條件的過濾
+                    if (companyNameQuery && currentResults.length > 0) {
+                        currentResults = filterByCompanyName(currentResults, companyNameQuery);
+                        console.log('公司名稱過濾後:', currentResults.length, '筆');
+                    }
+                    if (companyIdQuery && currentResults.length > 0) {
+                        currentResults = filterByCompanyId(currentResults, companyIdQuery);
+                        console.log('統一編號過濾後:', currentResults.length, '筆');
+                    }
+                    if (unitQuery && currentResults.length > 0) {
+                        currentResults = filterByUnitId(currentResults, unitQuery);
+                        console.log('機關代碼過濾後:', currentResults.length, '筆');
+                    }
+                    
+                    allResults = currentResults;
+                    
+                } else {
+                    // OR 邏輯：任一條件符合即可
+                    console.log('使用 OR 邏輯搜尋');
+                    
+                    // 根據標案名稱搜尋
+                    if (titleQuery) {
+                        console.log('開始標案名稱搜尋:', titleQuery);
+                        const results = await searchAllPages('title', titleQuery);
+                        console.log('標案名稱搜尋結果:', results.length, '筆');
+                        allResults = allResults.concat(results);
+                        searchCount++;
+                    }
+                    
+                    // 根據公司名稱搜尋
+                    if (companyNameQuery) {
+                        console.log('開始公司名稱搜尋:', companyNameQuery);
+                        const results = await searchAllPages('companyname', companyNameQuery);
+                        console.log('公司名稱搜尋結果:', results.length, '筆');
+                        allResults = allResults.concat(results);
+                        searchCount++;
+                    }
+                    
+                    // 根據統一編號搜尋
+                    if (companyIdQuery) {
+                        console.log('開始統一編號搜尋:', companyIdQuery);
+                        const results = await searchAllPages('companyid', companyIdQuery);
+                        console.log('統一編號搜尋結果:', results.length, '筆');
+                        allResults = allResults.concat(results);
+                        searchCount++;
+                    }
+                    
+                    // 根據機關代碼搜尋
+                    if (unitQuery) {
+                        console.log('開始機關代碼搜尋:', unitQuery);
+                        const results = await searchAllPages('unit', unitQuery);
+                        console.log('機關代碼搜尋結果:', results.length, '筆');
+                        allResults = allResults.concat(results);
+                        searchCount++;
+                    }
+                    
+                    console.log('合併前總結果:', allResults.length, '筆');
+                    
+                    // 去重複
+                    allResults = removeDuplicates(allResults);
+                    console.log('去重複後:', allResults.length, '筆');
+                }
+                
+                // 過濾日期範圍
+                if (startDate || endDate) {
+                    allResults = filterByDateRange(allResults, startDate, endDate);
+                    console.log('日期過濾後:', allResults.length, '筆');
+                }
+                
+                // 過濾標案類型
+                if (tenderType !== 'all') {
+                    allResults = filterByTenderType(allResults, tenderType);
+                    console.log('類型過濾後:', allResults.length, '筆');
+                }
+                
+                if (allResults.length > 0) {
+                    searchResults = allResults;
+                    displayResults(allResults);
+                    
+                    const typeText = tenderType === 'all' ? '' : `（${tenderType === 'open' ? '開標' : '決標'}）`;
+                    const logicText = searchLogic === 'and' ? 'AND' : 'OR';
+                    showMessage(`搜尋完成！找到 ${allResults.length} 筆資料${typeText}（使用 ${logicText} 邏輯，${searchCount} 個搜尋條件）`, 'success');
+                    
+                    // 如果有 Gemini API Key，進行 AI 分析
+                    const geminiKey = document.getElementById('geminiKey').value.trim();
+                    if (geminiKey) {
+                        performAIAnalysis(allResults, geminiKey);
+                    }
+                } else {
+                    console.log('沒有找到符合條件的資料');
+                    showMessage('沒有找到符合條件的資料', 'error');
+                }
+                
+            } catch (error) {
+                console.error('搜尋錯誤:', error);
+                showMessage(`搜尋時發生錯誤：${error.message}`, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Gemini Agent 智能搜尋
+        async function performGeminiAgentSearch() {
+            const geminiKey = document.getElementById('geminiKey').value.trim();
+            if (!geminiKey) {
+                showMessage('請先輸入 Gemini API Key 才能使用 Agent 搜尋功能', 'error');
+                return;
+            }
+
+            const titleQuery = document.getElementById('titleQuery').value.trim();
+            if (!titleQuery) {
+                showMessage('請先輸入標案名稱關鍵字，Agent 會根據此關鍵字搜尋同類型案件', 'error');
+                return;
+            }
+
+            showLoading(true);
+            hideMessage();
+
+            try {
+                showMessage('Gemini Agent 正在分析標案類型並搜尋相似案件...', 'info');
+
+                // 1. 先進行基本搜尋獲取樣本資料
+                let sampleResults = await searchAllPages('title', titleQuery);
+                console.log('初始搜尋結果:', sampleResults.length, '筆');
+                
+                if (sampleResults.length === 0) {
+                    // 如果沒有找到結果，嘗試更廣泛的搜尋
+                    showMessage('正在嘗試更廣泛的搜尋...', 'info');
+                    
+                    // 嘗試搜尋部分關鍵字
+                    const words = titleQuery.split(/\s+/).filter(word => word.length > 1);
+                    let broaderResults = [];
+                    
+                    for (const word of words.slice(0, 3)) {
+                        try {
+                            const wordResults = await searchAllPages('title', word);
+                            broaderResults = broaderResults.concat(wordResults);
+                            console.log(`關鍵字 "${word}" 搜尋結果:`, wordResults.length, '筆');
+                        } catch (error) {
+                            console.warn(`關鍵字 "${word}" 搜尋失敗:`, error);
+                        }
+                    }
+                    
+                    if (broaderResults.length === 0) {
+                        showMessage('未找到相關標案，請嘗試其他關鍵字', 'error');
+                        return;
+                    }
+                    
+                    // 使用更廣泛的搜尋結果作為樣本
+                    sampleResults = broaderResults.slice(0, 10);
+                    console.log('使用更廣泛搜尋結果:', sampleResults.length, '筆');
+                }
+
+                // 2. 使用 Gemini 分析標案特徵
+                const analysisPrompt = `
+請分析以下政府採購標案的特徵，並提供相關的搜尋關鍵字建議：
+
+標案資料：
+${JSON.stringify(sampleResults.slice(0, 5), null, 2)}
+
+請分析：
+1. 標案的主要類型和領域
+2. 相關的技術關鍵字
+3. 可能涉及的產品或服務類別
+4. 相關的機關類型
+5. 建議的搜尋關鍵字（至少5個）
+
+請以 JSON 格式回應，包含以下欄位：
+{
+  "category": "標案類別",
+  "keywords": ["關鍵字1", "關鍵字2", "關鍵字3"],
+  "related_terms": ["相關術語1", "相關術語2"],
+  "product_types": ["產品類型1", "產品類型2"],
+  "agency_types": ["機關類型1", "機關類型2"]
+}
+`;
+
+                const analysisResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-goog-api-key': geminiKey
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: analysisPrompt
+                            }]
+                        }]
+                    })
+                });
+
+                if (!analysisResponse.ok) {
+                    throw new Error(`Gemini API 錯誤: ${analysisResponse.status}`);
+                }
+
+                const analysisData = await analysisResponse.json();
+                const analysisText = analysisData.candidates[0].content.parts[0].text;
+                
+                // 解析 Gemini 回應
+                let analysis;
+                try {
+                    // 提取 JSON 部分
+                    const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        analysis = JSON.parse(jsonMatch[0]);
+                    } else {
+                        throw new Error('無法解析 Gemini 回應');
+                    }
+                } catch (parseError) {
+                    console.error('解析 Gemini 回應失敗:', parseError);
+                    // 使用備用方案
+                    analysis = {
+                        category: "政府採購標案",
+                        keywords: [titleQuery, "採購", "標案", "招標", "決標"],
+                        related_terms: [titleQuery],
+                        product_types: ["服務", "產品"],
+                        agency_types: ["政府機關"]
+                    };
+                }
+
+                console.log('Gemini 分析結果:', analysis);
+
+                // 3. 根據分析結果進行擴展搜尋
+                let allAgentResults = [...sampleResults];
+                const searchKeywords = analysis.keywords || [titleQuery];
+
+                // 搜尋相關關鍵字
+                for (const keyword of searchKeywords.slice(0, 3)) { // 限制搜尋數量避免過多請求
+                    if (keyword !== titleQuery) {
+                        try {
+                            const keywordResults = await searchAllPages('title', keyword);
+                            allAgentResults = allAgentResults.concat(keywordResults);
+                            console.log(`關鍵字 "${keyword}" 搜尋結果:`, keywordResults.length, '筆');
+                        } catch (error) {
+                            console.warn(`關鍵字 "${keyword}" 搜尋失敗:`, error);
+                        }
+                    }
+                }
+
+                // 4. 去重複並過濾
+                allAgentResults = removeDuplicates(allAgentResults);
+                console.log('去重複後結果:', allAgentResults.length, '筆');
+
+                // 5. 使用 Gemini 進行智能排序
+                const rankingPrompt = `
+請根據以下標案與原始搜尋關鍵字 "${titleQuery}" 的相關性進行排序：
+
+標案列表：
+${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
+
+請回傳排序後的標案索引陣列（最相關的在前），格式：[0, 5, 2, 8, ...]
+`;
+
+                try {
+                    const rankingResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-goog-api-key': geminiKey
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: rankingPrompt
+                                }]
+                            }]
+                        })
+                    });
+
+                    if (rankingResponse.ok) {
+                        const rankingData = await rankingResponse.json();
+                        const rankingText = rankingData.candidates[0].content.parts[0].text;
+                        const rankingMatch = rankingText.match(/\[[\d\s,]+\]/);
+                        if (rankingMatch) {
+                            const ranking = JSON.parse(rankingMatch[0]);
+                            // 重新排序結果
+                            const sortedResults = ranking.map(index => allAgentResults[index]).filter(Boolean);
+                            allAgentResults = [...sortedResults, ...allAgentResults.filter((_, index) => !ranking.includes(index))];
+                        }
+                    }
+                } catch (rankingError) {
+                    console.warn('智能排序失敗，使用原始順序:', rankingError);
+                }
+
+                // 6. 顯示結果
+                if (allAgentResults.length > 0) {
+                    searchResults = allAgentResults;
+                    displayResults(allAgentResults, true);
+
+                    // 在搜尋結果區域顯示 Gemini Agent 分析結果
+                    const searchResultsDiv = document.getElementById('searchResults');
+                    if (searchResultsDiv) {
+                        const geminiAnalysisDiv = document.createElement('div');
+                        geminiAnalysisDiv.className = 'gemini-analysis mb-4';
+                        geminiAnalysisDiv.innerHTML = `
+                            <div class="alert alert-success">
+                                <h6><i class="fas fa-robot me-2"></i>Gemini Agent 分析結果</h6>
+                                <p><strong>標案類別：</strong>${analysis.category}</p>
+                                <p><strong>相關關鍵字：</strong>${analysis.keywords.join(', ')}</p>
+                                <p><strong>找到 ${allAgentResults.length} 筆相關標案</strong></p>
+                            </div>
+                        `;
+                        searchResultsDiv.insertBefore(geminiAnalysisDiv, searchResultsDiv.firstChild);
+                    }
+
+                    showMessage(`Gemini Agent 搜尋完成！找到 ${allAgentResults.length} 筆相關標案`, 'success');
+                } else {
+                    showMessage('Gemini Agent 未找到相關標案', 'error');
+                }
+
+            } catch (error) {
+                console.error('Gemini Agent 搜尋錯誤:', error);
+                showMessage(`Gemini Agent 搜尋失敗：${error.message}`, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 根據時間範圍搜尋
+        async function searchByTimeRange(searchType, query, page) {
+            // 直接搜尋所有資料，不限制日期
+            return await searchAllData(searchType, query, page);
+        }
+        
+        // 搜尋所有資料（不限制日期）
+        async function searchAllData(searchType, query, page) {
+            let url = '';
+            let params = new URLSearchParams();
+            
+            if (searchType === 'unit') {
+                url = `${API_BASE}/listbyunit`;
+                params.append('unit_id', query);
+            } else {
+                switch(searchType) {
+                    case 'companyname':
+                        url = `${API_BASE}/searchbycompanyname`;
+                        params.append('query', query);
+                        break;
+                    case 'companyid':
+                        url = `${API_BASE}/searchbycompanyid`;
+                        params.append('query', query);
+                        break;
+                    case 'title':
+                        url = `${API_BASE}/searchbytitle`;
+                        params.append('query', query);
+                        break;
+                }
+            }
+            
+            params.append('page', page);
+            
+            const fullUrl = `${url}?${params.toString()}`;
+            console.log(`API 調用: ${fullUrl}`);
+            
+            const response = await fetch(fullUrl);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            console.log(`API 回應:`, data);
+            
+            // 儲存搜尋結果的總筆數和分頁資訊
+            window.searchMeta = {
+                totalRecords: data.total_records || 0,
+                totalPages: data.total_pages || 0,
+                currentPage: parseInt(page) || 1,
+                query: query,
+                searchType: searchType
+            };
+            
+            return data.records || [];
+        }
+        
+        // 搜尋所有頁面的資料（限制最多20頁以獲取更多結果）
+        async function searchAllPages(searchType, query) {
+            let allResults = [];
+            let page = 1;
+            let hasMorePages = true;
+            let maxPages = 20; // 增加頁數限制以獲取更多結果
+            
+            console.log(`開始搜尋 ${searchType}: ${query}`);
+            
+            while (hasMorePages && page <= maxPages) {
+                try {
+                    console.log(`搜尋第 ${page} 頁...`);
+                    const results = await searchAllData(searchType, query, page);
+                    console.log(`第 ${page} 頁找到 ${results.length} 筆資料`);
+                    
+                    if (results && results.length > 0) {
+                        allResults = allResults.concat(results);
+                    }
+                    
+                    // 檢查是否還有更多頁面
+                    if (window.searchMeta && page < window.searchMeta.totalPages && page < maxPages) {
+                        page++;
+                    } else {
+                        hasMorePages = false;
+                    }
+                } catch (error) {
+                    console.error(`搜尋第 ${page} 頁時發生錯誤:`, error);
+                    hasMorePages = false;
+                }
+            }
+            
+            console.log(`搜尋完成，總共找到 ${allResults.length} 筆資料`);
+            return allResults;
+        }
+
+        // 按日期搜尋
+        async function searchByDate(searchType, query, date) {
+            let url = '';
+            let params = new URLSearchParams();
+            
+            if (searchType === 'unit') {
+                url = `${API_BASE}/listbyunit`;
+                params.append('unit_id', query);
+            } else {
+                // 先搜尋，然後過濾日期
+                switch(searchType) {
+                    case 'companyname':
+                        url = `${API_BASE}/searchbycompanyname`;
+                        params.append('query', query);
+                        break;
+                    case 'companyid':
+                        url = `${API_BASE}/searchbycompanyid`;
+                        params.append('query', query);
+                        break;
+                    case 'title':
+                        url = `${API_BASE}/searchbytitle`;
+                        params.append('query', query);
+                        break;
+                }
+            }
+            
+            const response = await fetch(`${url}?${params.toString()}`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            if (searchType === 'unit') {
+                return data.records || [];
+            } else {
+                // 過濾指定日期的結果
+                const targetDate = date.replace(/-/g, '');
+                return (data.records || []).filter(record => record.date === targetDate);
+            }
+        }
+
+        // 格式化日期為 API 格式
+        function formatDateForAPI(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}${month}${day}`;
+        }
+
+        // 顯示載入動畫
+        function showLoading(show) {
+            document.getElementById('loadingSpinner').style.display = show ? 'block' : 'none';
+        }
+
+        // 隱藏訊息
+        function hideMessage() {
+            document.getElementById('messageArea').innerHTML = '';
+        }
+
+        // 顯示搜尋結果
+        function displayResults(results, isGeminiSearch = false) {
+            const resultsDiv = document.getElementById('searchResults');
+            const resultsList = document.getElementById('resultsList');
+            const resultStats = document.getElementById('resultStats');
+            const resultFilters = document.getElementById('resultFilters');
+            
+            resultsDiv.style.display = 'block';
+            resultFilters.style.display = 'block';
+            resultsList.innerHTML = '';
+            
+            // 儲存原始結果
+            window.allSearchResults = results;
+            window.isGeminiSearch = isGeminiSearch;
+            
+            const searchType = isGeminiSearch ? 'Gemini Agent 搜尋' : '一般搜尋';
+            
+            // 統計開標和決標數量
+            const openCount = results.filter(r => r.brief?.type && (r.brief.type.includes('開標') || r.brief.type.includes('招標'))).length;
+            const awardCount = results.filter(r => r.brief?.type && (r.brief.type.includes('決標') || r.brief.type.includes('得標'))).length;
+            
+            resultStats.innerHTML = `
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="stats-card">
+                            <div class="stats-number">${results.length}</div>
+                            <div class="stats-label">總計</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="stats-card">
+                            <div class="stats-number text-primary">${openCount}</div>
+                            <div class="stats-label">開標</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="stats-card">
+                            <div class="stats-number text-danger">${awardCount}</div>
+                            <div class="stats-label">決標</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center mt-2">
+                    <small class="text-muted">${searchType}</small>
+                </div>
+            `;
+            
+
+            // 顯示結果
+            filterAndDisplayResults();
+        }
+        
+        // 過濾和顯示結果
+        function filterAndDisplayResults() {
+            const resultsList = document.getElementById('resultsList');
+            const filterType = document.querySelector('input[name="resultFilter"]:checked').value;
+            const sortBy = document.getElementById('sortBy').value;
+            
+            let filteredResults = [...window.allSearchResults];
+            
+            // 過濾標案類型
+            if (filterType !== 'all') {
+                filteredResults = filterByTenderType(filteredResults, filterType);
+            }
+            
+            // 排序
+            filteredResults = sortResultsBy(filteredResults, sortBy);
+            
+            // 清空並重新顯示
+            resultsList.innerHTML = '';
+            
+            filteredResults.forEach((record, index) => {
+                const resultItem = createResultItem(record, index, window.isGeminiSearch || false);
+                resultsList.appendChild(resultItem);
+            });
+            
+            // 更新統計
+            const resultStats = document.getElementById('resultStats');
+            resultStats.innerHTML = `
+                <div class="stats-card">
+                    <div class="stats-number">${filteredResults.length}</div>
+                    <div class="stats-label">顯示標案</div>
+                </div>
+            `;
+        }
+        
+        // 排序結果
+        function sortResults() {
+            filterAndDisplayResults();
+        }
+        
+        // 根據條件排序
+        function sortResultsBy(results, sortBy) {
+            return results.sort((a, b) => {
+                switch (sortBy) {
+                    case 'date_desc':
+                        return b.date - a.date;
+                    case 'date_asc':
+                        return a.date - b.date;
+                    case 'title':
+                        return (a.brief?.title || '').localeCompare(b.brief?.title || '');
+                    case 'unit':
+                        return (a.unit_name || '').localeCompare(b.unit_name || '');
+                    default:
+                        return 0;
+                }
+            });
+        }
+
+        // 創建結果項目
+        function createResultItem(record, index, isGeminiSearch = false) {
+            const div = document.createElement('div');
+            div.className = 'result-item';
+            
+            const brief = record.brief || {};
+            const companies = brief.companies || {};
+            
+            // 構建政府採購網連結
+            const govUrl = buildGovUrl(record);
+            
+            // 如果沒有政府採購網連結，嘗試異步獲取詳細資訊
+            if (govUrl === '#' || govUrl.includes('pcc.g0v.ronny.tw')) {
+                // 異步獲取詳細資訊來構建正確的連結
+                fetchTenderDetailForUrl(record.unit_id, record.job_number).then(detailUrl => {
+                    if (detailUrl && detailUrl !== '#') {
+                        // 更新連結
+                        const link = div.querySelector('a');
+                        if (link) {
+                            link.href = detailUrl;
+                        }
+                    }
+                }).catch(error => {
+                    console.log('無法獲取詳細資訊:', error);
+                });
+            }
+            
+            // 判斷是否為決標類型
+            const isAward = brief.type && (brief.type.includes('決標') || brief.type.includes('得標'));
+            const badgeClass = isAward ? 'bg-danger' : 'bg-primary';
+            const titleClass = isAward ? 'text-danger' : 'text-primary';
+            
+            div.innerHTML = `
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <h5 class="mb-0">
+                        <a href="${govUrl}" target="_blank" class="${titleClass} text-decoration-none">
+                            ${brief.title || '無標題'}
+                            <i class="fas fa-external-link-alt ms-1" style="font-size: 0.8em;"></i>
+                        </a>
+                        ${isGeminiSearch ? '<span class="text-warning ms-2" title="Gemini 推薦"><i class="fas fa-star"></i></span>' : ''}
+                    </h5>
+                    <span class="badge ${badgeClass}">${brief.type || '未知類型'}</span>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <small class="text-muted"><i class="fas fa-calendar me-1"></i>日期: ${record.date || '未知'}</small>
+                    </div>
+                    <div class="col-md-3">
+                        <small class="text-muted"><i class="fas fa-building me-1"></i>機關: ${record.unit_name || '未知'}</small>
+                    </div>
+                    <div class="col-md-3">
+                        <small class="text-muted"><i class="fas fa-hashtag me-1"></i>代碼: ${record.job_number || '未知'}</small>
+                    </div>
+                    <div class="col-md-3">
+                        <small class="text-muted"><i class="fas fa-tag me-1"></i>分類: ${brief.category || '未知'}</small>
+                    </div>
+                </div>
+                ${companies.names && companies.names.length > 0 ? `
+                    <div class="mb-3">
+                        <strong><i class="fas fa-users me-1"></i>相關公司:</strong>
+                        <div class="mt-2">
+                            ${companies.names.map(name => `<button class="btn btn-outline-info btn-sm me-2 mb-1 company-btn" onclick="openCompanyAnalysis('${name}')" title="點擊在新分頁中分析 ${name} 的得標情況">${name}</button>`).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-outline-primary btn-sm" onclick="showDetail('${record.unit_id}', '${record.job_number}', '${record.date}')">
+                        <i class="fas fa-info-circle me-1"></i>詳細資料
+                    </button>
+                    <button class="btn btn-outline-info btn-sm" onclick="startChat('${brief.title || '無標題'}', '${record.unit_name || '未知機關'}', '${brief.type || '未知類型'}')">
+                        <i class="fas fa-comments me-1"></i>AI 對話
+                    </button>
+                </div>
+            `;
+            
+            return div;
+        }
+
+        // 獲取標案詳細資訊來構建正確的政府採購網連結
+        async function fetchTenderDetailForUrl(unitId, jobNumber) {
+            try {
+                const response = await fetch(`${API_BASE}/tender?unit_id=${unitId}&job_number=${jobNumber}`);
+                if (!response.ok) {
+                    return '#';
+                }
+                
+                const data = await response.json();
+                const record = data.records && data.records.length > 0 ? data.records[0] : data;
+                
+                // 使用詳細資訊構建正確的連結
+                return buildGovUrl(record);
+            } catch (error) {
+                console.error('獲取標案詳細資訊失敗:', error);
+                return '#';
+            }
+        }
+
+        // 構建政府採購網 URL
+        function buildGovUrl(record) {
+            // 優先使用 detail.url 中的政府採購網連結
+            if (record.detail && record.detail.url && record.detail.url.startsWith('https://web.pcc.gov.tw')) {
+                return record.detail.url;
+            }
+            // 如果有 pkPmsMain，構建政府採購網連結
+            if (record.detail && record.detail.pkPmsMain) {
+                return `https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetail?pkPmsMain=${record.detail.pkPmsMain}`;
+            }
+            // 如果有直接的 url 欄位且是政府採購網連結
+            if (record.url && record.url.startsWith('https://web.pcc.gov.tw')) {
+                return record.url;
+            }
+            // 備用方案：使用 pcc.g0v.ronny.tw 的 tender.html
+            if (record.job_number && record.unit_id && record.date) {
+                const dateStr = record.date.toString();
+                const filename = record.filename || 'unknown';
+                return `https://pcc.g0v.ronny.tw/tender.html?unit_id=${record.unit_id}&job_number=${record.job_number}&date=${dateStr}&filename=${filename}`;
+            } else if (record.url) {
+                if (record.url.startsWith('http')) {
+                    return record.url;
+                } else {
+                    return `https://pcc.g0v.ronny.tw${record.url}`;
+                }
+            }
+            return '#';
+        }
+
+        // 關閉詳細資料模態框
+        function closeDetailModal() {
+            const modal = document.getElementById('detailModal');
+            if (modal) {
+                const bsModal = bootstrap.Modal.getInstance(modal);
+                if (bsModal) {
+                    bsModal.hide();
+                }
+            }
+        }
+
+        // 切換標案記錄分頁
+        function switchTenderRecord(index) {
+            if (!window.tenderRecords || !window.tenderRecords[index]) {
+                return;
+            }
+            
+            const record = window.tenderRecords[index];
+            const brief = record.brief || {};
+            const detail = record.detail || {};
+            
+            // 格式化日期
+            const dateStr = record.date ? record.date.toString() : '';
+            const formattedDate = dateStr ? `${dateStr.substring(0,4)}年${dateStr.substring(4,6)}月${dateStr.substring(6,8)}日` : '無資料';
+            
+            // 更新內容
+            const content = document.getElementById('tenderDetailContent');
+            if (content) {
+                content.innerHTML = `
+                    <h6>基本資訊</h6>
+                    <table class="table table-sm">
+                        <tr><td><strong>標案名稱</strong></td><td>${brief.title || '無資料'}</td></tr>
+                        <tr><td><strong>標案類型</strong></td><td>${brief.type || '無資料'}</td></tr>
+                        <tr><td><strong>發布日期</strong></td><td>${formattedDate}</td></tr>
+                        <tr><td><strong>機關名稱</strong></td><td>${detail['機關資料:機關名稱'] || '無資料'}</td></tr>
+                        <tr><td><strong>標案編號</strong></td><td>${record.job_number || '無資料'}</td></tr>
+                        <tr><td><strong>機關代碼</strong></td><td>${record.unit_id || '無資料'}</td></tr>
+                        <tr><td><strong>分類</strong></td><td>${brief.category || '無資料'}</td></tr>
+                        <tr><td><strong>預算金額</strong></td><td>${detail['採購資料:預算金額'] || '無資料'}</td></tr>
+                    </table>
+                    
+                    <h6 class="mt-3">招標資訊</h6>
+                    <table class="table table-sm">
+                        <tr><td><strong>招標方式</strong></td><td>${detail['招標資料:招標方式'] || '無資料'}</td></tr>
+                        <tr><td><strong>決標方式</strong></td><td>${detail['招標資料:決標方式'] || '無資料'}</td></tr>
+                        <tr><td><strong>開標時間</strong></td><td>${detail['領投開標:開標時間'] || '無資料'}</td></tr>
+                        <tr><td><strong>開標地點</strong></td><td>${detail['領投開標:開標地點'] || '無資料'}</td></tr>
+                        <tr><td><strong>截止投標</strong></td><td>${detail['領投開標:截止投標'] || '無資料'}</td></tr>
+                        <tr><td><strong>押標金</strong></td><td>${detail['領投開標:是否須繳納押標金:押標金額度'] || '無資料'}</td></tr>
+                    </table>
+                    
+                    <div class="mt-3">
+                        <h6>重要時間提醒</h6>
+                        <div class="d-flex gap-2 flex-wrap">
+                            ${detail['領投開標:開標時間'] ? `
+                                <button class="btn btn-outline-primary btn-sm" 
+                                        onclick="addToCalendar('${brief.title || '標案'} - 開標', '${detail['領投開標:開標時間']}', '${detail['領投開標:開標地點'] || detail['機關資料:機關名稱'] || '政府機關'}', '${buildGovUrl(record)}')">
+                                    <i class="fas fa-calendar-plus me-1"></i>開標時間加入行事曆
+                                </button>
+                            ` : ''}
+                            ${detail['領投開標:截止投標'] ? `
+                                <button class="btn btn-outline-warning btn-sm" 
+                                        onclick="addToCalendar('${brief.title || '標案'} - 截止投標', '${detail['領投開標:截止投標']}', '${detail['領投開標:開標地點'] || detail['機關資料:機關名稱'] || '政府機關'}', '${buildGovUrl(record)}')">
+                                    <i class="fas fa-calendar-times me-1"></i>截止投標加入行事曆
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                    
+                    ${brief.companies?.names?.length > 0 ? `
+                        <h6 class="mt-3">相關公司</h6>
+                        <ul>
+                            ${brief.companies.names.map(name => `<li>${name}</li>`).join('')}
+                        </ul>
+                    ` : '<p class="mt-3">無相關公司資料</p>'}
+                    
+                    <div class="mt-3">
+                        <a href="${buildGovUrl(record)}" target="_blank" class="btn btn-primary me-2">
+                            <i class="fas fa-external-link-alt me-1"></i>查看完整標案頁面
+                        </a>
+                        <button class="btn btn-secondary me-2" onclick="closeDetailModal()">
+                            <i class="fas fa-times me-1"></i>關閉此頁面
+                        </button>
+                    </div>
+                `;
+            }
+            
+            // 更新按鈕狀態
+            document.querySelectorAll('[data-record-index]').forEach(btn => {
+                btn.classList.remove('active');
+                if (parseInt(btn.dataset.recordIndex) === index) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        // 顯示詳細資料
+        async function showDetail(unitId, jobNumber, date) {
+            const maxRetries = 3;
+            let lastError = null;
+            
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    showMessage(`正在載入標案詳細資料... (嘗試 ${attempt}/${maxRetries})`, 'info');
+                    
+                    console.log(`正在請求詳細資料 (嘗試 ${attempt}): ${API_BASE}/tender?unit_id=${unitId}&job_number=${jobNumber}`);
+                    
+                    // 添加超時控制
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超時
+                    
+                    const response = await fetch(`${API_BASE}/tender?unit_id=${unitId}&job_number=${jobNumber}`, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'Cache-Control': 'no-cache'
+                        },
+                        mode: 'cors',
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    console.log('API 回應狀態:', response.status, response.statusText);
+                    
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('API 錯誤回應:', errorText);
+                        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+                    }
+                    
+                    const data = await response.json();
+                    console.log('API 回應資料:', data);
+                    
+                    // 成功取得資料，跳出重試迴圈
+                    // 取得所有記錄
+                    const records = data.records || [data];
+                    const currentRecord = records[0];
+                    const brief = currentRecord.brief || {};
+                    const detail = currentRecord.detail || {};
+                    
+                    // 格式化日期
+                    const dateStr = currentRecord.date ? currentRecord.date.toString() : date.toString();
+                    const formattedDate = `${dateStr.substring(0,4)}年${dateStr.substring(4,6)}月${dateStr.substring(6,8)}日`;
+                    
+                    // 生成分頁按鈕
+                    const paginationButtons = records.length > 1 ? `
+                        <div class="mb-3">
+                            <h6>標案進度分頁</h6>
+                            <div class="btn-group" role="group">
+                                ${records.map((record, index) => {
+                                    const recordDate = record.date ? record.date.toString() : '';
+                                    const recordFormattedDate = recordDate ? `${recordDate.substring(0,4)}年${recordDate.substring(4,6)}月${recordDate.substring(6,8)}日` : '';
+                                    const recordType = record.brief?.type || '無資料';
+                                    const isActive = index === 0 ? 'active' : '';
+                                    return `
+                                        <button type="button" class="btn btn-outline-primary btn-sm ${isActive}" 
+                                                onclick="switchTenderRecord(${index})" 
+                                                data-record-index="${index}">
+                                            ${recordFormattedDate}<br>
+                                            <small>${recordType}</small>
+                                        </button>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    ` : '';
+                    
+                    // 顯示詳細資料
+                    const detailHtml = `
+                        <div class="modal fade" id="detailModal" tabindex="-1">
+                            <div class="modal-dialog modal-xl">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">標案詳細資料</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        ${paginationButtons}
+                                        
+                                        <div id="tenderDetailContent">
+                                            <h6>基本資訊</h6>
+                                            <table class="table table-sm">
+                                                <tr><td><strong>標案名稱</strong></td><td>${brief.title || '無資料'}</td></tr>
+                                                <tr><td><strong>標案類型</strong></td><td>${brief.type || '無資料'}</td></tr>
+                                                <tr><td><strong>發布日期</strong></td><td>${formattedDate}</td></tr>
+                                                <tr><td><strong>機關名稱</strong></td><td>${detail['機關資料:機關名稱'] || '無資料'}</td></tr>
+                                                <tr><td><strong>標案編號</strong></td><td>${currentRecord.job_number || '無資料'}</td></tr>
+                                                <tr><td><strong>機關代碼</strong></td><td>${currentRecord.unit_id || '無資料'}</td></tr>
+                                                <tr><td><strong>分類</strong></td><td>${brief.category || '無資料'}</td></tr>
+                                                <tr><td><strong>預算金額</strong></td><td>${detail['採購資料:預算金額'] || '無資料'}</td></tr>
+                                            </table>
+                                            
+                                            <h6 class="mt-3">招標資訊</h6>
+                                            <table class="table table-sm">
+                                                <tr><td><strong>招標方式</strong></td><td>${detail['招標資料:招標方式'] || '無資料'}</td></tr>
+                                                <tr><td><strong>決標方式</strong></td><td>${detail['招標資料:決標方式'] || '無資料'}</td></tr>
+                                                <tr><td><strong>開標時間</strong></td><td>${detail['領投開標:開標時間'] || '無資料'}</td></tr>
+                                                <tr><td><strong>開標地點</strong></td><td>${detail['領投開標:開標地點'] || '無資料'}</td></tr>
+                                                <tr><td><strong>截止投標</strong></td><td>${detail['領投開標:截止投標'] || '無資料'}</td></tr>
+                                                <tr><td><strong>押標金</strong></td><td>${detail['領投開標:是否須繳納押標金:押標金額度'] || '無資料'}</td></tr>
+                                            </table>
+                                            
+                                            <div class="mt-3">
+                                                <h6>重要時間提醒</h6>
+                                                <div class="d-flex gap-2 flex-wrap">
+                                                    ${detail['領投開標:開標時間'] ? `
+                                                        <button class="btn btn-outline-primary btn-sm" 
+                                                                onclick="addToCalendar('${brief.title || '標案'} - 開標', '${detail['領投開標:開標時間']}', '${detail['領投開標:開標地點'] || detail['機關資料:機關名稱'] || '政府機關'}', '${buildGovUrl(currentRecord)}')">
+                                                            <i class="fas fa-calendar-plus me-1"></i>開標時間加入行事曆
+                                                        </button>
+                                                    ` : ''}
+                                                    ${detail['領投開標:截止投標'] ? `
+                                                        <button class="btn btn-outline-warning btn-sm" 
+                                                                onclick="addToCalendar('${brief.title || '標案'} - 截止投標', '${detail['領投開標:截止投標']}', '${detail['領投開標:開標地點'] || detail['機關資料:機關名稱'] || '政府機關'}', '${buildGovUrl(currentRecord)}')">
+                                                            <i class="fas fa-calendar-times me-1"></i>截止投標加入行事曆
+                                                        </button>
+                                                    ` : ''}
+                                                </div>
+                                            </div>
+                                            
+                                            ${brief.companies?.names?.length > 0 ? `
+                                                <h6 class="mt-3">相關公司</h6>
+                                                <ul>
+                                                    ${brief.companies.names.map(name => `<li>${name}</li>`).join('')}
+                                                </ul>
+                                            ` : '<p class="mt-3">無相關公司資料</p>'}
+                                            
+                                            <div class="mt-3">
+                                                <a href="${buildGovUrl(currentRecord)}" target="_blank" class="btn btn-primary me-2">
+                                                    <i class="fas fa-external-link-alt me-1"></i>查看完整標案頁面
+                                                </a>
+                                                <button class="btn btn-secondary me-2" onclick="closeDetailModal()">
+                                                    <i class="fas fa-times me-1"></i>關閉此頁面
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // 儲存記錄資料供分頁使用
+                    window.tenderRecords = records;
+                    
+                    // 移除舊的 modal
+                    const oldModal = document.getElementById('detailModal');
+                    if (oldModal) {
+                        oldModal.remove();
+                    }
+                    
+                    // 添加新的 modal
+                    document.body.insertAdjacentHTML('beforeend', detailHtml);
+                    
+                    // 顯示 modal
+                    const modal = new bootstrap.Modal(document.getElementById('detailModal'));
+                    modal.show();
+                    
+                    // 成功載入，跳出重試迴圈
+                    return;
+                    
+                } catch (error) {
+                    console.error(`載入詳細資料錯誤 (嘗試 ${attempt}):`, error);
+                    lastError = error;
+                    
+                    // 如果不是最後一次嘗試，等待後重試
+                    if (attempt < maxRetries) {
+                        console.log(`等待 ${attempt * 1000}ms 後重試...`);
+                        await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+                    }
+                }
+            }
+            
+            // 所有重試都失敗了
+            console.error('載入詳細資料失敗，已嘗試', maxRetries, '次');
+            console.error('最後錯誤:', lastError);
+            
+            let errorMessage = '載入詳細資料失敗：';
+            if (lastError.name === 'AbortError') {
+                errorMessage += '請求超時，請檢查網路連線';
+            } else if (lastError.name === 'TypeError' && lastError.message.includes('Failed to fetch')) {
+                errorMessage += '網路連線失敗，請檢查網路連線或稍後再試';
+            } else if (lastError.message.includes('CORS')) {
+                errorMessage += '跨域請求被阻擋，請檢查瀏覽器設定';
+            } else if (lastError.message.includes('Load failed')) {
+                errorMessage += '請求載入失敗，可能是 API 服務暫時無法使用';
+            } else if (lastError.message.includes('NetworkError')) {
+                errorMessage += '網路錯誤，請檢查網路連線';
+            } else {
+                errorMessage += `${lastError.message} (${lastError.name})`;
+            }
+            
+            // 添加調試資訊
+            errorMessage += `<br><small class="text-muted">API URL: ${API_BASE}/tender?unit_id=${unitId}&job_number=${jobNumber}</small>`;
+            errorMessage += `<br><small class="text-muted">已嘗試 ${maxRetries} 次重試</small>`;
+            
+            showNotification('載入詳細資料失敗', errorMessage, 'error');
+        }
+
+        // 加入 Google Calendar
+        function addToCalendar(title, dateStr, unit, url) {
+            try {
+                // 確保 URL 是正確的政府採購網連結
+                const govUrl = buildGovUrl({url: url});
+                
+                // 解析日期字串 (格式: 114/10/03 15:30 或 114/10/17 17:00)
+                let year, month, day, hour, minute;
+                
+                if (dateStr && dateStr.includes('/')) {
+                    const parts = dateStr.split(' ');
+                    const datePart = parts[0]; // 114/10/03
+                    const timePart = parts[1] || '09:00'; // 15:30 或預設 09:00
+                    
+                    const [y, m, d] = datePart.split('/');
+                    const [h, min] = timePart.split(':');
+                    
+                    // 民國年轉西元年
+                    year = parseInt(y) + 1911;
+                    month = m.padStart(2, '0');
+                    day = d.padStart(2, '0');
+                    hour = h.padStart(2, '0');
+                    minute = min.padStart(2, '0');
+                } else {
+                    // 如果沒有日期，使用當前日期
+                    const now = new Date();
+                    year = now.getFullYear();
+                    month = String(now.getMonth() + 1).padStart(2, '0');
+                    day = String(now.getDate()).padStart(2, '0');
+                    hour = '09';
+                    minute = '00';
+                }
+                
+                // 構建 Google Calendar URL
+                const startDate = `${year}${month}${day}T${hour}${minute}00`;
+                const endDate = `${year}${month}${day}T${String(parseInt(hour) + 1).padStart(2, '0')}${minute}00`;
+                
+                const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${startDate}/${endDate}&details=${encodeURIComponent(`機關：${unit}\n標案連結：${govUrl}`)}&location=${encodeURIComponent(unit)}`;
+                
+                // 打開 Google Calendar
+                window.open(calendarUrl, '_blank');
+                
+                showMessage('已開啟 Google Calendar 新增事件頁面', 'success');
+                
+            } catch (error) {
+                console.error('加入行事曆錯誤:', error);
+                showMessage(`加入行事曆失敗：${error.message}`, 'error');
+            }
+        }
+        
+        // 開始 AI 對話
+        function startChat(title, unit, type) {
+            const chatModal = document.getElementById('chatModal');
+            if (chatModal) {
+                const modal = new bootstrap.Modal(chatModal);
+                modal.show();
+                
+                // 設定對話上下文
+                window.currentChatContext = {
+                    title: title,
+                    unit: unit,
+                    type: type
+                };
+                
+                // 清空對話記錄
+                const chatMessages = document.getElementById('chatMessages');
+                chatMessages.innerHTML = `
+                    <div class="chat-message bot-message">
+                        <div class="message-content">
+                            <strong>AI 助手：</strong>您好！我是您的政府採購標案 AI 助手。我可以幫您分析標案資訊、回答相關問題，或提供投標建議。
+                            <br><br>
+                            <strong>當前標案：</strong>${title}<br>
+                            <strong>機關：</strong>${unit}<br>
+                            <strong>類型：</strong>${type}
+                            <br><br>
+                            請告訴我您想了解什麼？
+                        </div>
+                    </div>
+                `;
+            } else {
+                showMessage('對話功能尚未初始化，請先設定 Gemini API Key', 'error');
+            }
+        }
+
+        // 處理對話輸入鍵盤事件
+        function handleChatKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendChatMessage();
+            }
+        }
+        
+        // 發送對話訊息
+        async function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            // 清空輸入框
+            input.value = '';
+            
+            // 檢查是否有 Gemini API Key
+            const geminiKey = document.getElementById('geminiKey').value.trim();
+            if (!geminiKey) {
+                addChatMessage('user', message);
+                addChatMessage('bot', '請先在搜尋區域設定 Gemini API Key 才能使用對話功能。');
+                return;
+            }
+            
+            // 添加用戶訊息
+            addChatMessage('user', message);
+            
+            // 顯示載入中
+            const loadingId = addChatMessage('bot', '正在思考中...', true);
+            
+            try {
+                // 構建對話提示
+                const context = window.currentChatContext || {};
+                const prompt = `你是政府採購標案的專業 AI 助手。請根據以下標案資訊回答用戶問題：
+
+標案名稱：${context.title || '未知'}
+機關：${context.unit || '未知'}
+類型：${context.type || '未知'}
+
+用戶問題：${message}
+
+請用繁體中文回答，提供專業、實用的建議。如果問題與標案無關，請禮貌地引導用戶回到標案相關話題。`;
+                
+                // 調用 Gemini API
+                const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-goog-api-key': geminiKey
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: prompt
+                            }]
+                        }]
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API 錯誤: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '抱歉，我無法生成回應。';
+                
+                // 更新載入中的訊息
+                updateChatMessage(loadingId, 'bot', aiResponse);
+                
+            } catch (error) {
+                console.error('對話錯誤:', error);
+                updateChatMessage(loadingId, 'bot', `抱歉，發生錯誤：${error.message}`);
+            }
+        }
+        
+        // 添加對話訊息
+        function addChatMessage(sender, message, isLoading = false) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.id = messageId;
+            messageDiv.className = `chat-message ${sender}-message mb-3`;
+            
+            const senderName = sender === 'user' ? '您' : 'AI 助手';
+            const messageClass = sender === 'user' ? 'text-end' : 'text-start';
+            
+            messageDiv.innerHTML = `
+                <div class="message-content ${messageClass}">
+                    <strong>${senderName}：</strong>
+                    <div class="message-text">${message}</div>
+                </div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            return messageId;
+        }
+        
+        // 更新對話訊息
+        function updateChatMessage(messageId, sender, message) {
+            const messageDiv = document.getElementById(messageId);
+            if (messageDiv) {
+                const messageText = messageDiv.querySelector('.message-text');
+                if (messageText) {
+                    messageText.innerHTML = message;
+                }
+            }
+        }
+
+
+
+        // 開啟公司分析頁面
+        function openCompanyAnalysis(companyName) {
+            const geminiKey = document.getElementById('geminiKey').value.trim();
+            
+            if (!geminiKey) {
+                showNotification('需要 API Key', '請先輸入 Gemini API Key 才能進行公司分析', 'error');
+                return;
+            }
+
+            // 構建分析頁面 URL
+            const analysisUrl = `company_analysis.html?company=${encodeURIComponent(companyName)}&key=${encodeURIComponent(geminiKey)}`;
+            
+            // 在新分頁中開啟
+            window.open(analysisUrl, '_blank');
+            
+            showNotification('分析開始', `正在新分頁中分析 ${companyName} 的得標情況...`, 'info');
+        }
+
+        // 清除搜尋結果
+        function clearSearchResults() {
+            // 隱藏搜尋結果區域
+            document.getElementById('searchResults').style.display = 'none';
+            document.getElementById('resultFilters').style.display = 'none';
+            
+            // 清空結果列表
+            document.getElementById('resultsList').innerHTML = '';
+            
+            // 清空統計資料
+            document.getElementById('resultStats').innerHTML = '';
+            
+            // 清空全域變數
+            window.allSearchResults = [];
+            window.isGeminiSearch = false;
+            
+            // 顯示清除訊息
+            showNotification('清除完成', '搜尋結果已清除', 'success');
+        }
+
+        // 顯示 Gemini API Key 幫助
+        function showGeminiHelp() {
+            const helpText = `
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-robot me-2"></i>如何取得 Gemini API Key</h6>
+                    <ol>
+                        <li>前往 <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a></li>
+                        <li>使用 Google 帳號登入</li>
+                        <li>點擊「Create API Key」</li>
+                        <li>複製產生的 API Key 並貼到上方欄位</li>
+                    </ol>
+                    <p class="mb-0"><strong>注意：</strong>API Key 用於 AI 對話和智能分析功能，不會儲存在本機。</p>
+                </div>
+            `;
+            showMessage(helpText, 'info');
+        }
+
+        // 顯示 ChatGPT API Key 幫助
+        function showChatGPTHelp() {
+            const helpText = `
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-comments me-2"></i>如何取得 ChatGPT API Key</h6>
+                    <ol>
+                        <li>前往 <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a></li>
+                        <li>使用 OpenAI 帳號登入（如無帳號請先註冊）</li>
+                        <li>點擊「Create new secret key」</li>
+                        <li>複製產生的 API Key 並貼到上方欄位</li>
+                    </ol>
+                    <p class="mb-0"><strong>注意：</strong>API Key 用於 ChatGPT 對話功能，請妥善保管，不會儲存在本機。</p>
+                </div>
+            `;
+            showMessage(helpText, 'info');
+        }
+
+        // 顯示彈出式通知
+        function showNotification(title, message, type = 'info', duration = 5000) {
+            // 移除現有的通知
+            const existingNotification = document.querySelector('.notification');
+            if (existingNotification) {
+                existingNotification.remove();
+            }
+            
+            // 創建通知元素
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            
+            const iconMap = {
+                'error': 'fas fa-exclamation-triangle',
+                'success': 'fas fa-check-circle',
+                'info': 'fas fa-info-circle',
+                'warning': 'fas fa-exclamation-circle'
+            };
+            
+            notification.innerHTML = `
+                <div class="notification-header">
+                    <h6 class="notification-title">
+                        <i class="${iconMap[type] || 'fas fa-info-circle'} me-2"></i>${title}
+                    </h6>
+                    <button class="notification-close" onclick="closeNotification()" title="關閉">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="notification-body">
+                    ${message}
+                </div>
+            `;
+            
+            // 添加到頁面
+            document.body.appendChild(notification);
+            
+            // 自動關閉（除了錯誤通知）
+            if (type !== 'error' && duration > 0) {
+                setTimeout(() => {
+                    closeNotification();
+                }, duration);
+            }
+        }
+
+        // 關閉通知
+        function closeNotification() {
+            const notification = document.querySelector('.notification');
+            if (notification) {
+                notification.style.animation = 'slideUp 0.3s ease-out';
+                setTimeout(() => {
+                    notification.remove();
+                }, 300);
+            }
+        }
+
+        // 添加關閉動畫
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideUp {
+                from {
+                    opacity: 1;
+                    transform: translateX(-50%) translateY(0);
+                }
+                to {
+                    opacity: 0;
+                    transform: translateX(-50%) translateY(-20px);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // 顯示訊息（兼容舊版本）
+        function showMessage(message, type = 'info') {
+            showNotification('系統訊息', message, type);
+        }
+
+        // 隱藏訊息（兼容舊版本）
+        function hideMessage() {
+            closeNotification();
+        }
+
+        // 執行 AI 分析
+        async function performAIAnalysis(results, geminiKey) {
+            if (!results || results.length === 0) {
+                return;
+            }
+
+            try {
+                // 顯示 AI 分析載入中
+                document.getElementById('aiLoading').style.display = 'block';
+                document.getElementById('aiAnalysisResults').style.display = 'block';
+
+                // 構建分析提示
+                const analysisPrompt = `請分析以下政府採購標案資料：
+
+標案資料：
+${JSON.stringify(results.slice(0, 10), null, 2)}
+
+請提供以下分析：
+
+1. **標案類型分析**
+   - 開標與決標案件比例
+   - 主要標案類型分布
+
+2. **機關分析**
+   - 主要發包機關
+   - 機關類型分布
+
+3. **時間趨勢分析**
+   - 標案發布時間分布
+   - 是否有季節性趨勢
+
+4. **金額分析**
+   - 標案金額分布
+   - 高金額標案特徵
+
+5. **關鍵洞察**
+   - 重要發現
+   - 建議關注的標案
+
+請以專業、簡潔的方式呈現分析結果，使用繁體中文。`;
+
+                // 調用 Gemini API
+                const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-goog-api-key': geminiKey
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: analysisPrompt
+                            }]
+                        }]
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Gemini API 錯誤: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const analysisText = data.candidates[0].content.parts[0].text;
+
+                // 顯示分析結果
+                document.getElementById('aiContent').innerHTML = `
+                    <div class="analysis-content">
+                        <div style="white-space: pre-line; line-height: 1.8; font-size: 1.1rem;">${analysisText}</div>
+                    </div>
+                `;
+
+            } catch (error) {
+                console.error('AI 分析錯誤:', error);
+                document.getElementById('aiContent').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        AI 分析失敗：${error.message}
+                    </div>
+                `;
+            } finally {
+                // 隱藏載入中
+                document.getElementById('aiLoading').style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

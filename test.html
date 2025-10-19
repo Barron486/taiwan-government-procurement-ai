@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>搜尋測試</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>搜尋測試</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="query" class="form-label">搜尋關鍵字</label>
+                            <input type="text" class="form-control" id="query" value="提供">
+                        </div>
+                        <button class="btn btn-primary" onclick="testSearch()">測試搜尋</button>
+                        <div id="result" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://pcc-api.openfun.app/api';
+        
+        async function testSearch() {
+            const query = document.getElementById('query').value.trim();
+            const resultDiv = document.getElementById('result');
+            
+            if (!query) {
+                resultDiv.innerHTML = '<div class="alert alert-warning">請輸入搜尋關鍵字</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="alert alert-info">搜尋中...</div>';
+            
+            try {
+                console.log('開始搜尋:', query);
+                
+                // 測試 API 調用
+                const url = `${API_BASE}/searchbytitle?query=${encodeURIComponent(query)}&page=1`;
+                console.log('API URL:', url);
+                
+                const response = await fetch(url);
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('API 回應:', data);
+                
+                if (data.records && data.records.length > 0) {
+                    let html = `<div class="alert alert-success">找到 ${data.total_records} 筆資料</div>`;
+                    html += '<h5>前5筆結果:</h5><ul>';
+                    
+                    data.records.slice(0, 5).forEach((record, index) => {
+                        const dateStr = record.date.toString();
+                        const formattedDate = `${dateStr.substring(0,4)}年${dateStr.substring(4,6)}月${dateStr.substring(6,8)}日`;
+                        html += `<li>${formattedDate} - ${record.brief.title}</li>`;
+                    });
+                    
+                    html += '</ul>';
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = '<div class="alert alert-warning">沒有找到資料</div>';
+                }
+                
+            } catch (error) {
+                console.error('搜尋錯誤:', error);
+                resultDiv.innerHTML = `<div class="alert alert-danger">搜尋錯誤: ${error.message}</div>`;
+            }
+        }
+        
+        // 頁面載入時自動測試
+        window.onload = function() {
+            testSearch();
+        };
+    </script>
+</body>
+</html>

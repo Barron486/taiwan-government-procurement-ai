@@ -1,0 +1,37 @@
+{
+  "name": "taiwan-government-procurement-ai",
+  "version": "1.0.0",
+  "description": "台灣政府採購公告查詢系統 - AI 智能分析版 MVP v1.0",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 8000",
+    "serve": "python -m http.server 8000"
+  },
+  "keywords": [
+    "taiwan",
+    "government",
+    "procurement",
+    "ai",
+    "analysis",
+    "gemini",
+    "chatgpt",
+    "search",
+    "bootstrap",
+    "javascript"
+  ],
+  "author": "Barron",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/taiwan-government-procurement-ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/taiwan-government-procurement-ai/issues"
+  },
+  "homepage": "https://github.com/yourusername/taiwan-government-procurement-ai#readme",
+  "dependencies": {},
+  "devDependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
