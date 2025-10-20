@@ -172,12 +172,20 @@
 
             <!-- 錯誤訊息 -->
             <div id="errorSection" style="display: none;">
-                <div class="alert alert-danger">
-                    <h5><i class="fas fa-exclamation-triangle me-2"></i>分析失敗</h5>
-                    <p id="errorMessage"></p>
-                    <button class="btn btn-primary" onclick="location.reload()">
-                        <i class="fas fa-redo me-1"></i>重新載入
-                    </button>
+                <div class="alert alert-warning">
+                    <h5><i class="fas fa-exclamation-triangle me-2"></i>搜尋結果</h5>
+                    <div id="errorMessage" style="white-space: pre-line; line-height: 1.8;"></div>
+                    <div class="mt-4">
+                        <button class="btn btn-primary" onclick="location.reload()">
+                            <i class="fas fa-redo me-1"></i>重新搜尋
+                        </button>
+                        <button class="btn btn-secondary ms-2" onclick="window.location.href='index.html'">
+                            <i class="fas fa-home me-1"></i>返回主頁
+                        </button>
+                        <button class="btn btn-outline-secondary ms-2" onclick="window.close()">
+                            <i class="fas fa-times me-1"></i>關閉
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -242,31 +250,79 @@
                 let results = [];
                 let apiConnectionError = false;
                 
-                // 嘗試多種搜尋方式
+                // 嘗試多種搜尋方式（改進版）
                 const searchStrategies = [
+                    // 1. 完整公司名稱搜尋
                     { type: 'companyname', query: companyName, desc: '完整公司名稱' },
-                    { type: 'companyname', query: companyName.replace(/股份有限公司|有限公司|企業有限公司|企業股份有限公司/g, '').trim(), desc: '簡化公司名稱' },
-                    { type: 'companyname', query: companyName.split(' ')[0], desc: '公司名稱第一部分' },
-                    { type: 'companyname', query: companyName.replace(/\(.*\)/g, '').trim(), desc: '移除括號內容' },
-                    { type: 'companyname', query: companyName.replace(/股份有限公司|有限公司|企業有限公司|企業股份有限公司|股份有限公司|有限公司/g, '').trim(), desc: '移除所有公司類型' },
-                    { type: 'companyname', query: companyName.split('(')[0].trim(), desc: '移除括號前部分' }
+                    
+                    // 2. 移除公司類型後綴
+                    { type: 'companyname', query: companyName.replace(/股份有限公司|有限公司|企業有限公司|企業股份有限公司/g, '').trim(), desc: '移除公司類型' },
+                    
+                    // 3. 移除括號內容
+                    { type: 'companyname', query: companyName.replace(/\(.*\)/g, '').replace(/（.*）/g, '').trim(), desc: '移除括號內容' },
+                    
+                    // 4. 移除括號和公司類型
+                    { type: 'companyname', query: companyName.replace(/\(.*\)/g, '').replace(/（.*）/g, '').replace(/股份有限公司|有限公司|企業有限公司|企業股份有限公司/g, '').trim(), desc: '移除括號和公司類型' }
                 ];
                 
-                // 如果公司名稱包含英文，也嘗試搜尋英文部分
-                const englishMatch = companyName.match(/\(([^)]+)\)/);
-                if (englishMatch) {
-                    searchStrategies.push({ type: 'companyname', query: englishMatch[1], desc: '英文公司名稱' });
-                    searchStrategies.push({ type: 'companyname', query: englishMatch[1].split(' ')[0], desc: '英文公司名稱第一部分' });
-                }
-                
-                // 嘗試搜尋關鍵字
-                const keywords = companyName.match(/[\u4e00-\u9fff]+/g); // 提取中文字符
-                if (keywords && keywords.length > 0) {
-                    keywords.forEach(keyword => {
-                        if (keyword.length >= 2) {
-                            searchStrategies.push({ type: 'companyname', query: keyword, desc: `關鍵字: ${keyword}` });
+                // 提取中文部分
+                const chineseMatch = companyName.match(/([\u4e00-\u9fff]+)/g);
+                if (chineseMatch && chineseMatch.length > 0) {
+                    // 使用所有中文片段組合
+                    chineseMatch.forEach((segment, index) => {
+                        if (segment.length >= 2) {
+                            // 添加完整片段
+                            searchStrategies.push({ 
+                                type: 'companyname', 
+                                query: segment, 
+                                desc: `中文片段${index+1}: ${segment}` 
+                            });
+                            
+                            // 移除公司類型後綴
+                            const cleanSegment = segment.replace(/股份有限公司|有限公司|企業有限公司|企業股份有限公司/g, '').trim();
+                            if (cleanSegment && cleanSegment !== segment && cleanSegment.length >= 2) {
+                                searchStrategies.push({ 
+                                    type: 'companyname', 
+                                    query: cleanSegment, 
+                                    desc: `中文片段${index+1}（簡化）: ${cleanSegment}` 
+                                });
+                            }
+                            
+                            // 嘗試前幾個字（如果片段夠長）
+                            if (segment.length >= 4) {
+                                searchStrategies.push({ 
+                                    type: 'companyname', 
+                                    query: segment.substring(0, 3), 
+                                    desc: `中文關鍵字（前3字）: ${segment.substring(0, 3)}` 
+                                });
+                            }
+                            if (segment.length >= 3) {
+                                searchStrategies.push({ 
+                                    type: 'companyname', 
+                                    query: segment.substring(0, 2), 
+                                    desc: `中文關鍵字（前2字）: ${segment.substring(0, 2)}` 
+                                });
+                            }
                         }
                     });
+                }
+                
+                // 提取英文部分
+                const englishMatch = companyName.match(/\(([^)]+)\)/);
+                if (englishMatch) {
+                    searchStrategies.push({ type: 'companyname', query: englishMatch[1], desc: '英文名稱（括號內）' });
+                    
+                    // 英文名稱的第一個單字
+                    const firstWord = englishMatch[1].split(/\s+/)[0];
+                    if (firstWord && firstWord.length >= 2) {
+                        searchStrategies.push({ type: 'companyname', query: firstWord, desc: '英文關鍵字（第一單字）' });
+                    }
+                }
+                
+                // 嘗試使用 title 搜尋（標案名稱中可能包含公司名稱）
+                const mainName = companyName.replace(/\(.*\)/g, '').replace(/（.*）/g, '').replace(/股份有限公司|有限公司|企業有限公司|企業股份有限公司/g, '').trim();
+                if (mainName.length >= 2) {
+                    searchStrategies.push({ type: 'title', query: mainName, desc: `標案名稱搜尋: ${mainName}` });
                 }
                 
                 // 嘗試各種搜尋策略
@@ -309,32 +365,52 @@
                 if (uniqueResults.length === 0) {
                     // 提供更詳細的診斷資訊
                     console.log('沒有找到任何結果，apiConnectionError:', apiConnectionError);
+                    console.log('已嘗試的搜尋策略數量:', searchStrategies.length);
                     
                     let diagnosticInfo = `未找到「${companyName}」的相關標案紀錄。\n\n`;
                     
                     if (apiConnectionError) {
                         // API 連接問題 - 提供診斷和測試連結
-                        diagnosticInfo += `⚠️ 偵測到可能的 API 連接問題\n\n`;
-                        diagnosticInfo += `請先測試 API 是否正常運作：\n`;
-                        diagnosticInfo += `1. 開啟瀏覽器開發者工具 (按 F12)\n`;
-                        diagnosticInfo += `2. 查看 Console 和 Network 標籤\n`;
-                        diagnosticInfo += `3. 或使用我們的調試工具：debug_api.html\n\n`;
-                        diagnosticInfo += `如果 API 確實無法連接：\n`;
-                        diagnosticInfo += `- 可能是網路問題\n`;
-                        diagnosticInfo += `- 可能是 Cloudflare 防護（請在瀏覽器中開啟，而不是使用 curl 等工具）\n`;
-                        diagnosticInfo += `- 建議稍後再試\n`;
+                        diagnosticInfo += `⚠️ 偵測到 API 連接問題\n\n`;
+                        diagnosticInfo += `可能原因：\n`;
+                        diagnosticInfo += `- 網路連線不穩定\n`;
+                        diagnosticInfo += `- API 服務暫時無法使用\n`;
+                        diagnosticInfo += `- 瀏覽器安全設定阻擋請求\n\n`;
+                        diagnosticInfo += `建議操作：\n`;
+                        diagnosticInfo += `1. 檢查網路連線\n`;
+                        diagnosticInfo += `2. 重新整理頁面 (F5)\n`;
+                        diagnosticInfo += `3. 開啟瀏覽器開發者工具 (F12) 查看詳細錯誤\n`;
+                        diagnosticInfo += `4. 稍後再試\n`;
                     } else {
-                        // 找不到資料 - 提供搜尋建議
-                        diagnosticInfo += `✓ API 連接正常，但未找到相關記錄\n\n`;
-                        diagnosticInfo += `已嘗試的搜尋策略：\n`;
-                        diagnosticInfo += searchStrategies.slice(0, 5).map(s => `- ${s.desc}: "${s.query}"`).join('\n');
-                        if (searchStrategies.length > 5) {
-                            diagnosticInfo += `\n... 以及其他 ${searchStrategies.length - 5} 個變體\n`;
+                        // 找不到資料 - 提供詳細的搜尋報告和建議
+                        diagnosticInfo += `✓ API 連接正常\n`;
+                        diagnosticInfo += `✓ 已嘗試 ${searchStrategies.length} 種搜尋策略\n\n`;
+                        
+                        diagnosticInfo += `📋 搜尋策略詳情：\n`;
+                        diagnosticInfo += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+                        searchStrategies.forEach((s, i) => {
+                            if (i < 10) { // 顯示前10個策略
+                                diagnosticInfo += `${i+1}. ${s.desc}\n   查詢: "${s.query}" (類型: ${s.type})\n`;
+                            }
+                        });
+                        if (searchStrategies.length > 10) {
+                            diagnosticInfo += `... 以及其他 ${searchStrategies.length - 10} 種變體\n`;
                         }
-                        diagnosticInfo += `\n\n建議解決方式：\n`;
-                        diagnosticInfo += `1. 在主頁面搜尋相關標案，然後點擊「相關公司」標籤\n`;
-                        diagnosticInfo += `2. 確認公司名稱是否正確\n`;
-                        diagnosticInfo += `3. 該公司可能真的沒有政府採購記錄\n`;
+                        diagnosticInfo += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+                        
+                        diagnosticInfo += `💡 建議解決方式：\n\n`;
+                        diagnosticInfo += `1️⃣ 使用主頁面搜尋功能\n`;
+                        diagnosticInfo += `   - 回到主頁面 (index.html)\n`;
+                        diagnosticInfo += `   - 嘗試搜尋相關標案\n`;
+                        diagnosticInfo += `   - 查看「相關公司」標籤找到該公司\n\n`;
+                        diagnosticInfo += `2️⃣ 確認公司名稱\n`;
+                        diagnosticInfo += `   - 檢查公司名稱拼寫\n`;
+                        diagnosticInfo += `   - 嘗試不同的公司名稱格式\n`;
+                        diagnosticInfo += `   - 使用統一編號搜尋（如果有）\n\n`;
+                        diagnosticInfo += `3️⃣ 可能的情況\n`;
+                        diagnosticInfo += `   - 該公司可能使用不同名稱參與標案\n`;
+                        diagnosticInfo += `   - 該公司可能沒有政府採購記錄\n`;
+                        diagnosticInfo += `   - 該公司可能使用代理商或經銷商名義\n`;
                     }
                     
                     throw new Error(diagnosticInfo);
