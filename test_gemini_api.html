@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gemini API 測試工具</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif;
+        }
+        .main-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            margin: 20px auto;
+            max-width: 800px;
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .content {
+            padding: 30px;
+        }
+        .test-result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="header">
+            <h2><i class="fas fa-robot me-2"></i>Gemini API 測試工具</h2>
+            <p>驗證您的 Gemini API Key 是否正確設定</p>
+        </div>
+        
+        <div class="content">
+            <div class="mb-4">
+                <label for="apiKey" class="form-label fw-bold">Gemini API Key</label>
+                <div class="input-group">
+                    <input type="password" class="form-control" id="apiKey" placeholder="請輸入您的 Gemini API Key">
+                    <button class="btn btn-outline-primary" type="button" onclick="testAPI()">
+                        <i class="fas fa-play me-1"></i>測試 API
+                    </button>
+                </div>
+                <small class="form-text text-muted">
+                    請從 <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a> 取得您的 API Key
+                </small>
+            </div>
+            
+            <div id="testResults"></div>
+            
+            <div class="mt-4">
+                <h5>測試項目：</h5>
+                <ul>
+                    <li>API Key 格式驗證</li>
+                    <li>API 端點連線測試</li>
+                    <li>模型可用性檢查</li>
+                    <li>基本文字生成測試</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function testAPI() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const resultsDiv = document.getElementById('testResults');
+            
+            if (!apiKey) {
+                showResult('請輸入 API Key', 'error');
+                return;
+            }
+            
+            showResult('開始測試 API...', 'info');
+            
+            try {
+                // 測試 1: API Key 格式驗證
+                if (!apiKey.startsWith('AIza')) {
+                    showResult('❌ API Key 格式不正確，應該以 "AIza" 開頭', 'error');
+                    return;
+                }
+                showResult('✅ API Key 格式正確', 'success');
+                
+                // 測試 2: 嘗試不同的 API 端點
+                const endpoints = [
+                    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+                    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent',
+                    'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent'
+                ];
+                
+                let workingEndpoint = null;
+                
+                for (const endpoint of endpoints) {
+                    try {
+                        showResult(`測試端點: ${endpoint.split('/').pop()}`, 'info');
+                        
+                        const response = await fetch(`${endpoint}?key=${apiKey}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                contents: [{
+                                    parts: [{
+                                        text: '請回覆「API 測試成功」'
+                                    }]
+                                }]
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            const text = data.candidates[0].content.parts[0].text;
+                            showResult(`✅ 端點 ${endpoint.split('/').pop()} 測試成功！回應: ${text}`, 'success');
+                            workingEndpoint = endpoint;
+                            break;
+                        } else {
+                            showResult(`❌ 端點 ${endpoint.split('/').pop()} 失敗: ${response.status} ${response.statusText}`, 'error');
+                        }
+                    } catch (error) {
+                        showResult(`❌ 端點 ${endpoint.split('/').pop()} 錯誤: ${error.message}`, 'error');
+                    }
+                }
+                
+                if (workingEndpoint) {
+                    showResult(`🎉 找到可用的端點: ${workingEndpoint}`, 'success');
+                    showResult('您的 API Key 可以正常使用！', 'success');
+                } else {
+                    showResult('❌ 所有端點都無法使用，請檢查 API Key 是否正確', 'error');
+                }
+                
+            } catch (error) {
+                showResult(`❌ 測試失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        function showResult(message, type) {
+            const resultsDiv = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.innerHTML = message;
+            resultsDiv.appendChild(resultDiv);
+        }
+    </script>
+</body>
+</html>

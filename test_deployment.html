@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>部署測試 - 台灣政府採購公告查詢系統</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 600px;
+        }
+        .status {
+            font-size: 24px;
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 10px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .test-results {
+            text-align: left;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 部署測試</h1>
+        <h2>台灣政府採購公告查詢系統 - MVP v1.0</h2>
+        
+        <div class="status success">
+            ✅ GitHub Pages 部署成功！
+        </div>
+        
+        <div class="test-results">
+            <h3>📋 測試結果</h3>
+            <p><strong>部署時間：</strong> <span id="deployTime"></span></p>
+            <p><strong>頁面載入：</strong> <span id="loadStatus">測試中...</span></p>
+            <p><strong>API 連接：</strong> <span id="apiStatus">測試中...</span></p>
+            <p><strong>JavaScript：</strong> <span id="jsStatus">測試中...</span></p>
+        </div>
+        
+        <div class="status info">
+            <h3>🔗 可用連結</h3>
+            <a href="index.html" class="btn">主搜尋頁面</a>
+            <a href="company_analysis.html" class="btn">公司分析頁面</a>
+            <a href="search_test_home.html" class="btn">搜尋測試首頁</a>
+        </div>
+        
+        <div class="status info">
+            <h3>📱 功能特色</h3>
+            <ul style="text-align: left;">
+                <li>✅ 多種搜尋方式（標案名稱、公司名稱、機關、統一編號）</li>
+                <li>✅ 時間範圍選擇（今日、7日、30日、90日、本年至今）</li>
+                <li>✅ AI 智能分析（Gemini AI + ChatGPT）</li>
+                <li>✅ 公司分析功能（近3年得標統計）</li>
+                <li>✅ 政府採購網連結</li>
+                <li>✅ 響應式設計</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // 顯示部署時間
+        document.getElementById('deployTime').textContent = new Date().toLocaleString('zh-TW');
+        
+        // 測試頁面載入
+        document.getElementById('loadStatus').textContent = '✅ 成功';
+        
+        // 測試JavaScript
+        document.getElementById('jsStatus').textContent = '✅ 正常';
+        
+        // 測試API連接
+        async function testAPI() {
+            try {
+                const response = await fetch('https://pcc-api.openfun.app/api/searchbytitle?query=測試&page=1');
+                if (response.ok) {
+                    document.getElementById('apiStatus').textContent = '✅ 連接正常';
+                } else {
+                    document.getElementById('apiStatus').textContent = '⚠️ 回應異常';
+                }
+            } catch (error) {
+                document.getElementById('apiStatus').textContent = '❌ 連接失敗';
+            }
+        }
+        
+        testAPI();
+    </script>
+</body>
+</html>

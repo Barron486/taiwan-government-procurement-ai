@@ -18,9 +18,9 @@ Thumbs.db
 *.bak
 *.backup
 
-# 測試檔案
-test_*.html
-*_test.html
+# 測試檔案（保留部署測試）
+# test_*.html
+# *_test.html
 
 # API Key 檔案（如果有的話）
 .env

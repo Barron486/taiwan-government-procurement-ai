@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>測試政府採購網連結</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-case { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .result { margin: 10px 0; padding: 10px; background: #f5f5f5; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>測試政府採購網連結構建</h1>
+    <div id="testResults"></div>
+
+    <script>
+        // 構建政府採購網 URL
+        function buildGovUrl(record) {
+            // 檢查所有可能的 detail 欄位
+            const detail = record.detail || {};
+            
+            console.log('構建連結，record:', record);
+            console.log('detail.url:', detail.url);
+            console.log('detail.pkPmsMain:', detail.pkPmsMain);
+            
+            // 1. 優先使用 detail 中的 url 欄位（如果是政府採購網連結）
+            if (detail.url && detail.url.startsWith('https://web.pcc.gov.tw')) {
+                console.log('使用 detail.url:', detail.url);
+                return detail.url;
+            }
+            
+            // 2. 檢查 detail 中的 pkPmsMain 欄位
+            if (detail.pkPmsMain) {
+                const govUrl = `https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetail?pkPmsMain=${detail.pkPmsMain}`;
+                console.log('使用 pkPmsMain 構建連結:', govUrl);
+                return govUrl;
+            }
+            
+            // 3. 檢查 detail 中的所有欄位，找出 pkPmsMain
+            for (const key in detail) {
+                if (key.includes('pkPmsMain') || key === 'pkPmsMain') {
+                    const pkPmsMain = detail[key];
+                    if (pkPmsMain) {
+                        const govUrl = `https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetail?pkPmsMain=${pkPmsMain}`;
+                        console.log('在欄位中找到 pkPmsMain:', key, '=', pkPmsMain, '->', govUrl);
+                        return govUrl;
+                    }
+                }
+            }
+            
+            // 4. 檢查所有包含 "決標資料" 或 "招標資料" 的欄位
+            const relevantKeys = Object.keys(detail).filter(key => 
+                key.includes('決標資料') || key.includes('招標資料') || key.includes('採購資料')
+            );
+            
+            for (const key of relevantKeys) {
+                const value = detail[key];
+                if (typeof value === 'string' && value.includes('pkPmsMain')) {
+                    const match = value.match(/pkPmsMain=([A-Za-z0-9]+)/);
+                    if (match) {
+                        const govUrl = `https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetail?pkPmsMain=${match[1]}`;
+                        console.log('在字串中找到 pkPmsMain:', key, '=', value, '->', govUrl);
+                        return govUrl;
+                    }
+                }
+            }
+            
+            // 5. 使用 record 的 url 欄位
+            if (record.url && record.url.startsWith('https://web.pcc.gov.tw')) {
+                console.log('使用 record.url:', record.url);
+                return record.url;
+            }
+            
+            // 6. 備用方案：構建 pcc.g0v.ronny.tw 的 tender.html
+            if (record.job_number && record.unit_id && record.date) {
+                const dateStr = record.date.toString();
+                const filename = record.filename || 'unknown';
+                const fallbackUrl = `https://pcc.g0v.ronny.tw/tender.html?unit_id=${record.unit_id}&job_number=${record.job_number}&date=${dateStr}&filename=${filename}`;
+                console.log('使用備用方案:', fallbackUrl);
+                return fallbackUrl;
+            } else if (record.url) {
+                if (record.url.startsWith('http')) {
+                    console.log('使用 record.url (http):', record.url);
+                    return record.url;
+                } else {
+                    const fallbackUrl = `https://pcc.g0v.ronny.tw${record.url}`;
+                    console.log('使用 record.url (相對路徑):', fallbackUrl);
+                    return fallbackUrl;
+                }
+            }
+            
+            // 7. 最後備用方案
+            console.log('無法構建連結，返回 #');
+            return '#';
+        }
+
+        // 測試案例
+        async function runTests() {
+            const testResults = document.getElementById('testResults');
+            
+            // 測試案例1：使用參考API的資料
+            const testRecord1 = {
+                unit_id: "3.32.80",
+                job_number: "1140629E",
+                date: "20240925",
+                detail: {
+                    url: "https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetail?pkPmsMain=NzEwMDkyMDE",
+                    pkPmsMain: "NzEwMDkyMDE",
+                    "機關資料:機關代碼": "3.32.80",
+                    "採購資料:標案案號": "1140629E"
+                }
+            };
+            
+            const result1 = buildGovUrl(testRecord1);
+            testResults.innerHTML += `
+                <div class="test-case">
+                    <h3>測試案例1：有完整detail.url和pkPmsMain</h3>
+                    <div class="result ${result1.startsWith('https://web.pcc.gov.tw') ? 'success' : 'error'}">
+                        <strong>結果：</strong> ${result1}
+                    </div>
+                </div>
+            `;
+            
+            // 測試案例2：只有pkPmsMain
+            const testRecord2 = {
+                unit_id: "3.32.80",
+                job_number: "1140629E",
+                date: "20240925",
+                detail: {
+                    pkPmsMain: "NzEwMDkyMDE",
+                    "機關資料:機關代碼": "3.32.80",
+                    "採購資料:標案案號": "1140629E"
+                }
+            };
+            
+            const result2 = buildGovUrl(testRecord2);
+            testResults.innerHTML += `
+                <div class="test-case">
+                    <h3>測試案例2：只有pkPmsMain</h3>
+                    <div class="result ${result2.startsWith('https://web.pcc.gov.tw') ? 'success' : 'error'}">
+                        <strong>結果：</strong> ${result2}
+                    </div>
+                </div>
+            `;
+            
+            // 測試案例3：沒有detail資料
+            const testRecord3 = {
+                unit_id: "3.32.80",
+                job_number: "1140629E",
+                date: "20240925"
+            };
+            
+            const result3 = buildGovUrl(testRecord3);
+            testResults.innerHTML += `
+                <div class="test-case">
+                    <h3>測試案例3：沒有detail資料</h3>
+                    <div class="result ${result3.startsWith('https://pcc.g0v.ronny.tw') ? 'success' : 'error'}">
+                        <strong>結果：</strong> ${result3}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 執行測試
+        runTests();
+    </script>
+</body>
+</html>
