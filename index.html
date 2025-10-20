@@ -1571,6 +1571,61 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
             const badgeClass = isAward ? 'bg-danger' : 'bg-primary';
             const titleClass = isAward ? 'text-danger' : 'text-primary';
             
+            // 提取開標時間、投標時間和地點
+            const detail = record.detail || {};
+            const openTime = detail['領投開標:開標時間'] || '';
+            const bidDeadline = detail['領投開標:截止投標'] || '';
+            const openLocation = detail['領投開標:開標地點'] || detail['機關資料:機關名稱'] || record.unit_name || '未指定';
+            
+            // 構建時間資訊區域
+            let timeInfoHtml = '';
+            if (openTime || bidDeadline) {
+                timeInfoHtml = `
+                    <div class="row mb-3">
+                        ${openTime ? `
+                            <div class="col-md-6">
+                                <small class="text-primary">
+                                    <i class="fas fa-clock me-1"></i>
+                                    <strong>開標時間：</strong>
+                                    <a href="javascript:void(0)" 
+                                       onclick="addToCalendar('${(brief.title || '無標題').replace(/'/g, "\\'")} - 開標', '${openTime}', '${openLocation.replace(/'/g, "\\'")}', '${govUrl}')"
+                                       class="text-decoration-none text-primary"
+                                       title="點擊新增到 Google 行事曆">
+                                        ${openTime}
+                                        <i class="fas fa-calendar-plus ms-1"></i>
+                                    </a>
+                                </small>
+                            </div>
+                        ` : ''}
+                        ${bidDeadline ? `
+                            <div class="col-md-6">
+                                <small class="text-danger">
+                                    <i class="fas fa-hourglass-end me-1"></i>
+                                    <strong>截止投標：</strong>
+                                    <a href="javascript:void(0)" 
+                                       onclick="addToCalendar('${(brief.title || '無標題').replace(/'/g, "\\'")} - 截止投標', '${bidDeadline}', '${openLocation.replace(/'/g, "\\'")}', '${govUrl}')"
+                                       class="text-decoration-none text-danger"
+                                       title="點擊新增到 Google 行事曆">
+                                        ${bidDeadline}
+                                        <i class="fas fa-calendar-plus ms-1"></i>
+                                    </a>
+                                </small>
+                            </div>
+                        ` : ''}
+                    </div>
+                    ${openLocation && openLocation !== '未指定' ? `
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <small class="text-muted">
+                                    <i class="fas fa-map-marker-alt me-1"></i>
+                                    <strong>地點：</strong>${openLocation}
+                                </small>
+                            </div>
+                        </div>
+                    ` : ''}
+                `;
+            }
+            
             div.innerHTML = `
                 <div class="d-flex justify-content-between align-items-start mb-3">
                     <h5 class="mb-0">
@@ -1596,6 +1651,7 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                         <small class="text-muted"><i class="fas fa-tag me-1"></i>分類: ${brief.category || '未知'}</small>
                     </div>
                 </div>
+                ${timeInfoHtml}
                 ${companies.names && companies.names.length > 0 ? `
                     <div class="mb-3">
                         <strong><i class="fas fa-users me-1"></i>相關公司:</strong>
@@ -1616,13 +1672,13 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                             <i class="fas fa-share-alt me-1"></i>分享
                         </button>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="shareToLine('${(brief.title || '無標題').replace(/'/g, "\\'")}', '${(record.unit_name || '未知機關').replace(/'/g, "\\'")}', '${buildGovUrl(record)}')">
+                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="shareToLine('${(brief.title || '無標題').replace(/'/g, "\\'")}', '${(record.unit_name || '未知機關').replace(/'/g, "\\'")}', '${govUrl}')">
                                 <i class="fab fa-line text-success me-2"></i>分享到 Line
                             </a></li>
-                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="shareToGmail('${(brief.title || '無標題').replace(/'/g, "\\'")}', '${(record.unit_name || '未知機關').replace(/'/g, "\\'")}', '${record.job_number || '未知'}', '${buildGovUrl(record)}')">
+                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="shareToGmail('${(brief.title || '無標題').replace(/'/g, "\\'")}', '${(record.unit_name || '未知機關').replace(/'/g, "\\'")}', '${record.job_number || '未知'}', '${govUrl}')">
                                 <i class="fas fa-envelope text-danger me-2"></i>分享到 Gmail
                             </a></li>
-                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="copyLink('${buildGovUrl(record)}', '${(brief.title || '無標題').replace(/'/g, "\\'")}')">
+                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="copyLink('${govUrl}', '${(brief.title || '無標題').replace(/'/g, "\\'")}')">
                                 <i class="fas fa-copy text-primary me-2"></i>複製連結
                             </a></li>
                         </ul>
@@ -1654,13 +1710,25 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
 
         // 構建政府採購網 URL
         function buildGovUrl(record) {
+            // 優先使用 detail 中的 pkPmsMain（政府採購網原始資料）
+            if (record.detail && record.detail.pkPmsMain) {
+                return `https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetail?pkPmsMain=${record.detail.pkPmsMain}`;
+            }
+            // 如果有 pkPmsMain 欄位（可能在根層級）
+            if (record.pkPmsMain) {
+                return `https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetail?pkPmsMain=${record.pkPmsMain}`;
+            }
+            // 檢查 detail 中所有欄位，找出包含 pkPmsMain 的欄位
+            if (record.detail) {
+                for (const key in record.detail) {
+                    if (key.includes('pkPmsMain') && record.detail[key]) {
+                        return `https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetail?pkPmsMain=${record.detail[key]}`;
+                    }
+                }
+            }
             // 優先使用 detail.url 中的政府採購網連結
             if (record.detail && record.detail.url && record.detail.url.startsWith('https://web.pcc.gov.tw')) {
                 return record.detail.url;
-            }
-            // 如果有 pkPmsMain，構建政府採購網連結
-            if (record.detail && record.detail.pkPmsMain) {
-                return `https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetail?pkPmsMain=${record.detail.pkPmsMain}`;
             }
             // 如果有直接的 url 欄位且是政府採購網連結
             if (record.url && record.url.startsWith('https://web.pcc.gov.tw')) {
@@ -1961,27 +2029,44 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                     
                     console.log('初始化 Bootstrap Modal');
                     try {
-                        const modal = new bootstrap.Modal(modalElement, {
-                            backdrop: true,
-                            keyboard: true,
-                            focus: true
-                        });
+                        // 確保 Bootstrap 已載入
+                        if (typeof bootstrap === 'undefined') {
+                            throw new Error('Bootstrap 尚未載入，請稍後再試');
+                        }
                         
-                        console.log('顯示 modal');
-                        modal.show();
-                        
-                        // 監聽 modal 顯示事件
-                        modalElement.addEventListener('shown.bs.modal', function () {
-                            console.log('Modal 已成功顯示');
-                        });
-                        
-                        // 監聽 modal 隱藏事件
-                        modalElement.addEventListener('hidden.bs.modal', function () {
-                            console.log('Modal 已關閉');
-                            // 清理
-                            modalElement.remove();
-                            document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
-                        });
+                        // 使用 setTimeout 確保 DOM 已完全準備好
+                        setTimeout(() => {
+                            try {
+                                const modal = new bootstrap.Modal(modalElement, {
+                                    backdrop: true,
+                                    keyboard: true,
+                                    focus: true
+                                });
+                                
+                                console.log('顯示 modal');
+                                modal.show();
+                                
+                                // 監聽 modal 顯示事件
+                                modalElement.addEventListener('shown.bs.modal', function () {
+                                    console.log('Modal 已成功顯示');
+                                });
+                                
+                                // 監聽 modal 隱藏事件
+                                modalElement.addEventListener('hidden.bs.modal', function () {
+                                    console.log('Modal 已關閉');
+                                    // 清理
+                                    modalElement.remove();
+                                    document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+                                    document.body.classList.remove('modal-open');
+                                    document.body.style.overflow = '';
+                                    document.body.style.paddingRight = '';
+                                });
+                                
+                            } catch (error) {
+                                console.error('延遲初始化 Modal 錯誤:', error);
+                                alert('無法顯示詳細資料：' + error.message);
+                            }
+                        }, 100);
                         
                     } catch (modalError) {
                         console.error('Modal 初始化錯誤:', modalError);
