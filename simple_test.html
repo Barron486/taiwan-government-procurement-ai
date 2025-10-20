@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Pages 測試</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+        }
+        .success {
+            color: #28a745;
+            font-size: 24px;
+            margin: 20px 0;
+        }
+        .info {
+            color: #6c757d;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 GitHub Pages 測試成功！</h1>
+        <div class="success">✅ 部署正常運作</div>
+        <div class="info">
+            <p><strong>時間：</strong> <span id="currentTime"></span></p>
+            <p><strong>URL：</strong> barron486.github.io/taiwan-government-procurement-ai</p>
+        </div>
+        <h2>🔗 可用連結</h2>
+        <p><a href="index.html">主搜尋頁面</a></p>
+        <p><a href="test_deployment.html">完整測試頁面</a></p>
+    </div>
+
+    <script>
+        document.getElementById('currentTime').textContent = new Date().toLocaleString('zh-TW');
+    </script>
+</body>
+</html>
