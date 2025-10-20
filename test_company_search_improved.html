@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>公司搜尋測試（改進版）</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 30px 0;
+        }
+        .container {
+            max-width: 1200px;
+        }
+        .card {
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        .log-entry {
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        .log-info { background: #d1ecf1; border-left: 4px solid #0c5460; }
+        .log-success { background: #d4edda; border-left: 4px solid #155724; }
+        .log-warning { background: #fff3cd; border-left: 4px solid #856404; }
+        .log-error { background: #f8d7da; border-left: 4px solid #721c24; }
+        .strategy-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            margin: 3px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="fas fa-vial me-2"></i>公司搜尋測試（改進版）</h4>
+                <small>測試改進後的搜尋策略</small>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-8">
+                        <label class="form-label">測試公司名稱：</label>
+                        <input type="text" class="form-control" id="companyNameInput" 
+                               placeholder="輸入公司名稱" value="龐德生技有限公司">
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button class="btn btn-primary w-100" onclick="runTest()">
+                            <i class="fas fa-search me-2"></i>開始測試
+                        </button>
+                    </div>
+                </div>
+
+                <div id="strategiesSection" style="display: none;" class="mb-4">
+                    <h5><i class="fas fa-list-check me-2"></i>搜尋策略</h5>
+                    <div id="strategiesList"></div>
+                </div>
+
+                <div id="logsSection">
+                    <h5><i class="fas fa-terminal me-2"></i>測試日誌</h5>
+                    <div id="logs"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" id="resultsSection" style="display: none;">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>搜尋結果</h5>
+            </div>
+            <div class="card-body">
+                <div id="results"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = 'https://pcc-api.openfun.app/api';
+
+        function addLog(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logsDiv.appendChild(logEntry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+            console.log(`${type.toUpperCase()}: ${message}`);
+        }
+
+        function displayStrategies(strategies) {
+            const strategiesDiv = document.getElementById('strategiesList');
+            const strategiesSection = document.getElementById('strategiesSection');
+            
+            strategiesDiv.innerHTML = strategies.map((s, i) => 
+                `<span class="strategy-badge" title="${s.desc}">${i+1}. ${s.query} (${s.type})</span>`
+            ).join('');
+            
+            strategiesSection.style.display = 'block';
+            addLog(`生成了 ${strategies.length} 個搜尋策略`, 'info');
+        }
+
+        async function searchAllPages(searchType, query) {
+            let allResults = [];
+            let page = 1;
+            const maxPages = 3; // 測試用，限制最多3頁
+            
+            while (page <= maxPages) {
+                try {
+                    const url = `${API_BASE}/searchby${searchType}?query=${encodeURIComponent(query)}&page=${page}`;
+                    addLog(`正在搜尋第 ${page} 頁: ${searchType} = "${query}"`, 'info');
+                    
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json',
+                            'User-Agent': 'Mozilla/5.0'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        if (response.status === 404) {
+                            addLog(`第 ${page} 頁沒有更多資料`, 'warning');
+                            break;
+                        }
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    const records = data.records || [];
+                    
+                    addLog(`第 ${page} 頁找到 ${records.length} 筆記錄`, records.length > 0 ? 'success' : 'warning');
+                    
+                    if (records.length === 0) break;
+                    
+                    allResults = allResults.concat(records);
+                    page++;
+                    
+                } catch (error) {
+                    addLog(`第 ${page} 頁搜尋錯誤: ${error.message}`, 'error');
+                    break;
+                }
+            }
+            
+            return allResults;
+        }
+
+        async function runTest() {
+            const companyName = document.getElementById('companyNameInput').value.trim();
+            
+            if (!companyName) {
+                addLog('請輸入公司名稱', 'error');
+                return;
+            }
+
+            // 清空之前的結果
+            document.getElementById('logs').innerHTML = '';
+            document.getElementById('resultsSection').style.display = 'none';
+            
+            addLog(`開始測試搜尋：${companyName}`, 'info');
+            
+            // 生成搜尋策略（與 company_analysis.html 相同的邏輯）
+            const searchStrategies = [
+                // 1. 完整公司名稱搜尋
+                { type: 'companyname', query: companyName, desc: '完整公司名稱' },
+                
+                // 2. 移除公司類型後綴
+                { type: 'companyname', query: companyName.replace(/股份有限公司|有限公司|企業有限公司|企業股份有限公司/g, '').trim(), desc: '移除公司類型' },
+                
+                // 3. 移除括號內容
+                { type: 'companyname', query: companyName.replace(/\(.*\)/g, '').replace(/\uff08.*\uff09/g, '').trim(), desc: '移除括號內容' },
+                
+                // 4. 移除括號和公司類型
+                { type: 'companyname', query: companyName.replace(/\(.*\)/g, '').replace(/\uff08.*\uff09/g, '').replace(/股份有限公司|有限公司|企業有限公司|企業股份有限公司/g, '').trim(), desc: '移除括號和公司類型' }
+            ];
+            
+            // 提取中文部分
+            const chineseMatch = companyName.match(/([\u4e00-\u9fff]+)/g);
+            if (chineseMatch && chineseMatch.length > 0) {
+                chineseMatch.forEach((segment, index) => {
+                    if (segment.length >= 2) {
+                        // 添加完整片段
+                        searchStrategies.push({ 
+                            type: 'companyname', 
+                            query: segment, 
+                            desc: `中文片段${index+1}: ${segment}` 
+                        });
+                        
+                        // 移除公司類型後綴
+                        const cleanSegment = segment.replace(/股份有限公司|有限公司|企業有限公司|企業股份有限公司/g, '').trim();
+                        if (cleanSegment && cleanSegment !== segment && cleanSegment.length >= 2) {
+                            searchStrategies.push({ 
+                                type: 'companyname', 
+                                query: cleanSegment, 
+                                desc: `中文片段${index+1}（簡化）: ${cleanSegment}` 
+                            });
+                        }
+                        
+                        // 嘗試前幾個字
+                        if (segment.length >= 4) {
+                            searchStrategies.push({ 
+                                type: 'companyname', 
+                                query: segment.substring(0, 3), 
+                                desc: `中文關鍵字（前3字）: ${segment.substring(0, 3)}` 
+                            });
+                        }
+                        if (segment.length >= 3) {
+                            searchStrategies.push({ 
+                                type: 'companyname', 
+                                query: segment.substring(0, 2), 
+                                desc: `中文關鍵字（前2字）: ${segment.substring(0, 2)}` 
+                            });
+                        }
+                    }
+                });
+            }
+            
+            // 提取英文部分
+            const englishMatch = companyName.match(/\(([^)]+)\)/);
+            if (englishMatch) {
+                searchStrategies.push({ type: 'companyname', query: englishMatch[1], desc: '英文名稱（括號內）' });
+                
+                const firstWord = englishMatch[1].split(/\s+/)[0];
+                if (firstWord && firstWord.length >= 2) {
+                    searchStrategies.push({ type: 'companyname', query: firstWord, desc: '英文關鍵字（第一單字）' });
+                }
+            }
+            
+            // 嘗試使用 title 搜尋
+            const mainName = companyName.replace(/\(.*\)/g, '').replace(/\uff08.*\uff09/g, '').replace(/股份有限公司|有限公司|企業有限公司|企業股份有限公司/g, '').trim();
+            if (mainName.length >= 2) {
+                searchStrategies.push({ type: 'title', query: mainName, desc: `標案名稱搜尋: ${mainName}` });
+            }
+            
+            displayStrategies(searchStrategies);
+            
+            // 執行搜尋
+            let allResults = [];
+            let successCount = 0;
+            
+            for (const strategy of searchStrategies) {
+                if (strategy.query && strategy.query.length > 1) {
+                    try {
+                        const strategyResults = await searchAllPages(strategy.type, strategy.query);
+                        
+                        if (strategyResults && strategyResults.length > 0) {
+                            allResults = allResults.concat(strategyResults);
+                            successCount++;
+                            addLog(`✓ 策略成功: ${strategy.desc} - 找到 ${strategyResults.length} 筆`, 'success');
+                        } else {
+                            addLog(`✗ 策略無結果: ${strategy.desc}`, 'warning');
+                        }
+                    } catch (error) {
+                        addLog(`✗ 策略失敗: ${strategy.desc} - ${error.message}`, 'error');
+                    }
+                }
+            }
+            
+            // 去重複
+            const uniqueResults = [];
+            const seen = new Set();
+            for (const result of allResults) {
+                const key = `${result.unit_id}-${result.job_number}-${result.date}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    uniqueResults.push(result);
+                }
+            }
+            
+            addLog(`搜尋完成！成功策略: ${successCount}/${searchStrategies.length}`, 'info');
+            addLog(`總結果數: ${allResults.length} 筆，去重後: ${uniqueResults.length} 筆`, 'info');
+            
+            // 顯示結果
+            if (uniqueResults.length > 0) {
+                displayResults(uniqueResults, companyName);
+            } else {
+                addLog('未找到任何結果', 'error');
+            }
+        }
+
+        function displayResults(results, companyName) {
+            const resultsDiv = document.getElementById('results');
+            const resultsSection = document.getElementById('resultsSection');
+            
+            resultsDiv.innerHTML = `
+                <h6 class="text-success mb-3">
+                    <i class="fas fa-check-circle me-2"></i>
+                    找到 ${results.length} 筆「${companyName}」的相關標案記錄
+                </h6>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>序號</th>
+                                <th>標案名稱</th>
+                                <th>機關</th>
+                                <th>日期</th>
+                                <th>類型</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${results.slice(0, 20).map((r, i) => {
+                                const brief = r.brief || {};
+                                const dateStr = r.date ? r.date.toString() : '';
+                                const formattedDate = dateStr ? 
+                                    `${dateStr.substring(0,4)}/${dateStr.substring(4,6)}/${dateStr.substring(6,8)}` : 
+                                    '未知';
+                                
+                                return `
+                                    <tr>
+                                        <td>${i+1}</td>
+                                        <td>${brief.title || '無標題'}</td>
+                                        <td>${r.unit_name || '未知'}</td>
+                                        <td>${formattedDate}</td>
+                                        <td><span class="badge ${brief.type && brief.type.includes('決標') ? 'bg-danger' : 'bg-primary'}">${brief.type || '未知'}</span></td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                ${results.length > 20 ? `<p class="text-muted">僅顯示前 20 筆結果</p>` : ''}
+            `;
+            
+            resultsSection.style.display = 'block';
+        }
+
+        // 頁面載入完成後的提示
+        document.addEventListener('DOMContentLoaded', () => {
+            addLog('測試工具已就緒，請輸入公司名稱並點擊「開始測試」', 'info');
+        });
+    </script>
+</body>
+</html>
