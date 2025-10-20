@@ -92,7 +92,8 @@
             <!-- 公司標題區域 -->
             <div class="company-header">
                 <h1><i class="fas fa-building me-3"></i><span id="companyName">載入中...</span></h1>
-                <p class="mb-0">政府採購得標分析報告（近3年）</p>
+                <p class="mb-1">競爭對手情報分析報告（近3年）</p>
+                <p class="mb-0"><small><i class="fas fa-shield-alt me-1"></i>羅氏診斷 Roche Diagnostics 市場情報分析</small></p>
             </div>
 
             <!-- 載入中 -->
@@ -145,8 +146,9 @@
 
                 <!-- Gemini AI 分析 -->
                 <div class="card analysis-card">
-                    <div class="card-header">
-                        <h5><i class="fas fa-star text-warning me-2"></i>Gemini AI 深度分析</h5>
+                    <div class="card-header" style="background: linear-gradient(135deg, #0066cc 0%, #003d7a 100%); color: white;">
+                        <h5><i class="fas fa-shield-alt me-2"></i>羅氏診斷 - 競爭對手情報分析</h5>
+                        <small>Powered by Gemini AI</small>
                     </div>
                     <div class="card-body">
                         <div id="geminiAnalysis" class="analysis-result">
@@ -405,10 +407,15 @@
                     return;
                 }
 
-                // 獲取每個標案的完整詳細資料
-                showMessage('正在載入標案詳細資料...', 'info');
+                // 獲取每個標案的完整詳細資料（取所有近3年決標案件）
+                showMessage(`正在載入標案詳細資料... (共 ${tenderResults.length} 筆)`, 'info');
+                
+                // 為了確保完整性，我們取所有近3年的決標案件（最多100筆）
+                const recordsToProcess = tenderResults.slice(0, Math.min(100, tenderResults.length));
+                console.log(`準備處理 ${recordsToProcess.length} 筆決標案件`);
+                
                 const detailedResults = await Promise.all(
-                    tenderResults.slice(0, 20).map(async (record) => {
+                    recordsToProcess.map(async (record) => {
                         try {
                             const detailResponse = await fetch(`${API_BASE}/tender?unit_id=${record.unit_id}&job_number=${record.job_number}`);
                             if (detailResponse.ok) {
@@ -651,11 +658,15 @@
             document.getElementById('yearlyStats').innerHTML = yearlyHtml;
         }
 
-        // 顯示得標案件清單
+        // 顯示得標案件清單（顯示所有近3年的案件）
         function displayTenderList(results) {
             console.log('顯示得標案件清單，共', results.length, '筆資料');
             
-            const tenderHtml = results.slice(0, 20).map((record, index) => {
+            // 顯示所有近3年的案件（最多100筆）
+            const displayCount = Math.min(100, results.length);
+            console.log(`準備顯示 ${displayCount} 筆案件`);
+            
+            const tenderHtml = results.slice(0, displayCount).map((record, index) => {
                 const brief = record.brief || {};
                 const detail = record.detail || {};
                 const dateStr = record.date ? record.date.toString() : '';
@@ -777,7 +788,15 @@
                 `;
             }).join('');
 
-            document.getElementById('tenderList').innerHTML = tenderHtml;
+            // 添加統計資訊
+            const statsHtml = `
+                <div class="alert alert-info mb-3">
+                    <h6><i class="fas fa-info-circle me-2"></i>資料統計</h6>
+                    <p class="mb-0">顯示 <strong>${displayCount}</strong> 筆近3年決標案件（共 ${results.length} 筆）</p>
+                </div>
+            `;
+            
+            document.getElementById('tenderList').innerHTML = statsHtml + tenderHtml;
         }
 
         // 構建政府採購網 URL
@@ -920,57 +939,94 @@
                     };
                 });
                 
-                // 讓 Gemini AI 直接使用搜尋 API 獲取近3年資料
-                const analysisPrompt = `你是一個專業的政府採購分析師。請分析公司 "${companyName}" 近3年在政府採購網的得標情況。
+                // 讓 Gemini AI 以羅氏診斷的視角分析競爭對手
+                const analysisPrompt = `# 角色設定
+你是羅氏診斷（Roche Diagnostics）的市場情報分析專家，專門負責分析競爭對手在台灣政府採購市場的表現。
 
-請使用以下 API 端點搜尋該公司的近3年決標資料：
-- 搜尋 API: https://pcc-api.openfun.app/api/searchbycompanyname?query=${encodeURIComponent(companyName)}&page=1
-- 詳細資料 API: https://pcc-api.openfun.app/api/tender?unit_id={unit_id}&job_number={job_number}
+# 分析任務
+請以羅氏診斷的立場，深入分析競爭對手「${companyName}」在近3年（${new Date().getFullYear()-2}年至${new Date().getFullYear()}年）的政府採購得標情況。
 
-以下是已經處理好的近3年資料，每筆記錄都包含：
-- 標案名稱、案號、機關名稱、決標日期
-- **決標金額**：已從 detail 中提取的決標金額（優先順序：決標資料:總決標金額 > 投標廠商:投標廠商1:決標金額 > 採購資料:決標金額 > 採購資料:預算金額）
-- **決標金額_數字**：轉換為數字的決標金額，可直接用於統計計算
-- 金額來源：標示金額是從哪個欄位提取的
+# 數據來源
+以下是「${companyName}」近3年的完整決標資料（共 ${processedData.length} 筆）：
 
-資料如下：
 ${JSON.stringify(processedData, null, 2)}
 
-請提供詳細的近3年分析報告，包含：
+# 分析架構
 
-1. **近3年得標摘要**
-   - 近3年總得標金額和案件數統計（請從 "決標資料:總決標金額" 或 "投標廠商:投標廠商1:決標金額" 欄位計算）
-   - 各年度得標金額和案件數詳細統計（2024年、2023年、2022年）
-   - 近3年得標時間分布和趨勢分析
-   - 主要得標領域和產品類型變化
+## 1. 競爭對手概況（${companyName}）
+   - 近3年總得標金額和成長趨勢
+   - 市場占有率估算
+   - 主要競爭領域（體外診斷、免疫分析、生化分析等）
+   - 得標案件規模分析（大型vs小型標案）
 
-2. **各年度詳細統計分析**
-   - 2024年：總案件數、總決標金額、平均案件金額
-   - 2023年：總案件數、總決標金額、平均案件金額
-   - 2022年：總案件數、總決標金額、平均案件金額
-   - 年度間成長率分析（案件數成長率、金額成長率）
+## 2. 競爭對手優勢分析
+   ### 2.1 產品優勢
+   - 從標案名稱分析其主打產品線
+   - 技術特色和創新點
+   - 與羅氏產品的直接競爭項目
+   
+   ### 2.2 市場策略優勢
+   - 目標客戶群分析（醫學中心、區域醫院、地區醫院）
+   - 定價策略（從決標金額推估）
+   - 市場滲透率變化趨勢
+   
+   ### 2.3 客戶關係優勢
+   - 長期合作醫院清單
+   - 客戶忠誠度分析
+   - 新客戶開發能力
 
-3. **近3年主要得標項目分析**
-   - 最常得標的標案類型變化
-   - 標案金額分布趨勢（從 "決標資料:總決標金額" 欄位分析）
-   - 標案複雜度變化分析
+## 3. 競爭對手劣勢分析
+   ### 3.1 產品線缺口
+   - 尚未涉足的診斷領域
+   - 產品組合不完整之處
+   - 技術限制
+   
+   ### 3.2 市場覆蓋弱點
+   - 未能進入的重要醫療機構
+   - 區域市場空白點
+   - 客戶流失情況
+   
+   ### 3.3 策略弱點
+   - 定價競爭力不足之處
+   - 服務品質問題（如有）
+   - 供應鏈或交期問題
 
-4. **近3年合作醫院分析**
-   - 主要合作醫院清單變化（從 "機關資料:機關名稱" 欄位分析）
-   - 各醫院得標金額統計趨勢
-   - 合作關係穩定性分析
+## 4. 羅氏 vs ${companyName} 直接對比
+   - 產品線完整度對比
+   - 技術創新能力對比
+   - 市場覆蓋範圍對比
+   - 客戶滿意度推估對比
+   - 品牌影響力對比
 
-5. **近3年競爭對手分析**
-   - 經常一起參與投標的公司變化（從 "brief.companies.names" 欄位分析）
-   - 競爭模式變化分析
-   - 市場地位變化評估
+## 5. 羅氏的競爭策略建議
+   ### 5.1 進攻策略
+   - 如何搶奪對手現有客戶
+   - 在對手強勢領域的突破點
+   - 產品差異化建議
+   
+   ### 5.2 防守策略
+   - 如何鞏固現有客戶
+   - 預防對手的競爭威脅
+   - 提升客戶轉換成本
+   
+   ### 5.3 市場機會
+   - 對手未覆蓋的市場空間
+   - 新興需求的把握
+   - 政策機會的利用
 
-6. **近3年趨勢洞察和建議**
-   - 公司優勢變化分析
-   - 近3年發展趨勢
-   - 未來機會和風險評估
+## 6. 行動計畫建議
+   - 短期（3-6個月）應採取的具體行動
+   - 中期（6-12個月）的策略部署
+   - 長期（1-3年）的市場布局
 
-請以專業、詳細的方式呈現近3年分析結果，使用繁體中文。`;
+# 分析要求
+1. **客觀但具競爭性**：基於數據客觀分析，但始終以羅氏的利益為出發點
+2. **可執行性**：提供具體、可操作的建議，而非泛泛而談
+3. **數據支撐**：所有分析都要引用具體的決標數據佐證
+4. **策略導向**：不只是描述現況，更要提出如何利用情報制定競爭策略
+5. **保持專業**：使用專業的市場分析術語，體現羅氏的專業水準
+
+請以繁體中文撰寫完整的競爭情報分析報告。`;
 
                 const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
                     method: 'POST',
