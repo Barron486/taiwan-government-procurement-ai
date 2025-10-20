@@ -827,13 +827,54 @@
         // 顯示訊息
         function showMessage(message, type = 'info') {
             const messageArea = document.getElementById('messageArea');
-            const alertClass = type === 'error' ? 'alert-danger' : 'alert-success';
-            messageArea.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
+            const alertClass = type === 'error' ? 'alert-danger' : type === 'warning' ? 'alert-warning' : 'alert-success';
             
+            // 錯誤訊息添加複製按鈕
+            const copyButton = type === 'error' ? `
+                <button class="btn btn-outline-danger btn-sm mt-2" onclick="copyMessageAreaError()" title="複製錯誤訊息">
+                    <i class="fas fa-copy me-1"></i>複製錯誤訊息
+                </button>
+            ` : '';
+            
+            messageArea.innerHTML = `
+                <div class="alert ${alertClass}">
+                    <div class="alert-message">${message}</div>
+                    ${copyButton}
+                </div>
+            `;
+            
+            // 成功訊息自動消失，錯誤訊息保留讓使用者手動關閉
             if (type === 'success') {
                 setTimeout(() => {
                     messageArea.innerHTML = '';
                 }, 3000);
+            }
+        }
+        
+        // 複製 messageArea 中的錯誤訊息
+        async function copyMessageAreaError() {
+            const messageArea = document.getElementById('messageArea');
+            const alertMessage = messageArea.querySelector('.alert-message');
+            if (!alertMessage) return;
+            
+            const textContent = alertMessage.textContent || alertMessage.innerText || '';
+            
+            try {
+                await navigator.clipboard.writeText(textContent);
+                const copyBtn = messageArea.querySelector('button');
+                if (copyBtn) {
+                    const originalHTML = copyBtn.innerHTML;
+                    copyBtn.innerHTML = '<i class="fas fa-check me-1"></i>已複製';
+                    copyBtn.classList.remove('btn-outline-danger');
+                    copyBtn.classList.add('btn-success');
+                    setTimeout(() => {
+                        copyBtn.innerHTML = originalHTML;
+                        copyBtn.classList.add('btn-outline-danger');
+                        copyBtn.classList.remove('btn-success');
+                    }, 2000);
+                }
+            } catch (error) {
+                alert('複製失敗，請手動複製錯誤訊息');
             }
         }
 
@@ -2262,6 +2303,52 @@ ${govUrl}
             showMessage(helpText, 'info');
         }
 
+        // 複製錯誤訊息到剪貼簿
+        async function copyErrorMessage() {
+            const notification = document.querySelector('.notification.error .notification-body');
+            if (!notification) return;
+            
+            // 移除 HTML 標籤，只保留文字內容
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = notification.innerHTML;
+            const textContent = tempDiv.textContent || tempDiv.innerText || '';
+            
+            try {
+                await navigator.clipboard.writeText(textContent);
+                // 顯示複製成功的小提示
+                const copyBtn = document.querySelector('.copy-error-btn');
+                if (copyBtn) {
+                    const originalHTML = copyBtn.innerHTML;
+                    copyBtn.innerHTML = '<i class="fas fa-check me-1"></i>已複製';
+                    copyBtn.classList.add('btn-success');
+                    copyBtn.classList.remove('btn-outline-secondary');
+                    setTimeout(() => {
+                        copyBtn.innerHTML = originalHTML;
+                        copyBtn.classList.remove('btn-success');
+                        copyBtn.classList.add('btn-outline-secondary');
+                    }, 2000);
+                }
+            } catch (error) {
+                // 備用方案：使用傳統的複製方法
+                const textArea = document.createElement('textarea');
+                textArea.value = textContent;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    document.execCommand('copy');
+                    alert('錯誤訊息已複製到剪貼簿');
+                } catch (err) {
+                    alert('複製失敗，請手動複製錯誤訊息');
+                }
+                
+                document.body.removeChild(textArea);
+            }
+        }
+
         // 顯示彈出式通知
         function showNotification(title, message, type = 'info', duration = 5000) {
             // 移除現有的通知
@@ -2281,6 +2368,15 @@ ${govUrl}
                 'warning': 'fas fa-exclamation-circle'
             };
             
+            // 錯誤訊息添加複製按鈕
+            const errorActions = type === 'error' ? `
+                <div class="notification-actions mt-3 pt-2" style="border-top: 1px solid rgba(255,255,255,0.3);">
+                    <button class="btn btn-outline-secondary btn-sm copy-error-btn" onclick="copyErrorMessage()" title="複製錯誤訊息以便回報問題">
+                        <i class="fas fa-copy me-1"></i>複製錯誤訊息
+                    </button>
+                </div>
+            ` : '';
+            
             notification.innerHTML = `
                 <div class="notification-header">
                     <h6 class="notification-title">
@@ -2291,7 +2387,8 @@ ${govUrl}
                     </button>
                 </div>
                 <div class="notification-body">
-                    ${message}
+                    <div class="notification-message">${message}</div>
+                    ${errorActions}
                 </div>
             `;
             
