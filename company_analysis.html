@@ -389,16 +389,38 @@ ${searchStrategies.map(s => `- ${s.desc}: "${s.query}"`).join('\n')}
                             if (detailResponse.ok) {
                                 const detailData = await detailResponse.json();
                                 const detailRecord = detailData.records?.[0] || detailData;
-                                // 合併詳細資料
+                                
+                                // 智能合併詳細資料
+                                let mergedDetail = record.detail || {};
+                                
+                                // 如果 detailRecord 有 detail 屬性，合併它
+                                if (detailRecord.detail && typeof detailRecord.detail === 'object') {
+                                    mergedDetail = { ...mergedDetail, ...detailRecord.detail };
+                                }
+                                // 如果 detailRecord 本身就是 detail 對象（包含決標相關欄位）
+                                else if (detailRecord && typeof detailRecord === 'object') {
+                                    // 檢查是否包含決標相關欄位
+                                    const hasDetailFields = Object.keys(detailRecord).some(key => 
+                                        key.includes('決標') || key.includes('投標') || key.includes('採購') || key.includes('機關')
+                                    );
+                                    if (hasDetailFields) {
+                                        mergedDetail = { ...mergedDetail, ...detailRecord };
+                                    }
+                                }
+                                
                                 const mergedRecord = {
                                     ...record,
-                                    detail: detailRecord.detail || record.detail,
-                                    url: detailRecord.url || record.url
+                                    detail: mergedDetail,
+                                    url: detailRecord.url || record.url,
+                                    pkPmsMain: detailRecord.pkPmsMain || record.pkPmsMain
                                 };
+                                
                                 console.log(`合併 ${record.job_number} 詳細資料:`, {
-                                    original: record,
-                                    detailRecord: detailRecord,
-                                    merged: mergedRecord
+                                    original_detail_keys: Object.keys(record.detail || {}),
+                                    detailRecord_keys: Object.keys(detailRecord),
+                                    detailRecord_detail_keys: detailRecord.detail ? Object.keys(detailRecord.detail) : [],
+                                    merged_detail_keys: Object.keys(mergedDetail),
+                                    has_award_amount: !!(mergedDetail['決標資料:總決標金額'] || mergedDetail['投標廠商:投標廠商1:決標金額'])
                                 });
                                 return mergedRecord;
                             }
@@ -797,6 +819,53 @@ ${searchStrategies.map(s => `- ${s.desc}: "${s.query}"`).join('\n')}
             }
 
             try {
+                // 預處理數據，提取關鍵資訊並確保決標金額清晰可見
+                const processedData = companyData.slice(0, 20).map(record => {
+                    const detail = record.detail || {};
+                    
+                    // 提取決標金額（按優先順序）
+                    let awardAmount = null;
+                    let amountSource = '';
+                    
+                    if (detail['決標資料:總決標金額']) {
+                        awardAmount = detail['決標資料:總決標金額'];
+                        amountSource = '決標資料:總決標金額';
+                    } else if (detail['投標廠商:投標廠商1:決標金額']) {
+                        awardAmount = detail['投標廠商:投標廠商1:決標金額'];
+                        amountSource = '投標廠商:投標廠商1:決標金額';
+                    } else if (detail['採購資料:決標金額']) {
+                        awardAmount = detail['採購資料:決標金額'];
+                        amountSource = '採購資料:決標金額';
+                    } else if (detail['採購資料:預算金額']) {
+                        awardAmount = detail['採購資料:預算金額'];
+                        amountSource = '採購資料:預算金額（備用）';
+                    }
+                    
+                    // 提取數字金額
+                    let numericAmount = 0;
+                    if (awardAmount) {
+                        const match = awardAmount.toString().match(/[\d,]+/);
+                        if (match) {
+                            numericAmount = parseInt(match[0].replace(/,/g, ''));
+                        }
+                    }
+                    
+                    return {
+                        標案名稱: record.brief?.title || '未知',
+                        案號: record.job_number,
+                        機關名稱: record.unit_name,
+                        決標日期: record.date,
+                        標案類型: record.brief?.type || '未知',
+                        決標金額: awardAmount,
+                        決標金額_數字: numericAmount,
+                        金額來源: amountSource,
+                        決標廠商: detail['投標廠商:投標廠商1:廠商名稱'] || companyName,
+                        相關公司: record.brief?.companies?.names || [],
+                        // 保留完整 detail 以供深入分析
+                        detail: detail
+                    };
+                });
+                
                 // 讓 Gemini AI 直接使用搜尋 API 獲取近3年資料
                 const analysisPrompt = `你是一個專業的政府採購分析師。請分析公司 "${companyName}" 近3年在政府採購網的得標情況。
 
@@ -804,8 +873,14 @@ ${searchStrategies.map(s => `- ${s.desc}: "${s.query}"`).join('\n')}
 - 搜尋 API: https://pcc-api.openfun.app/api/searchbycompanyname?query=${encodeURIComponent(companyName)}&page=1
 - 詳細資料 API: https://pcc-api.openfun.app/api/tender?unit_id={unit_id}&job_number={job_number}
 
-請分析以下近3年資料：
-${JSON.stringify(companyData.slice(0, 20), null, 2)}
+以下是已經處理好的近3年資料，每筆記錄都包含：
+- 標案名稱、案號、機關名稱、決標日期
+- **決標金額**：已從 detail 中提取的決標金額（優先順序：決標資料:總決標金額 > 投標廠商:投標廠商1:決標金額 > 採購資料:決標金額 > 採購資料:預算金額）
+- **決標金額_數字**：轉換為數字的決標金額，可直接用於統計計算
+- 金額來源：標示金額是從哪個欄位提取的
+
+資料如下：
+${JSON.stringify(processedData, null, 2)}
 
 請提供詳細的近3年分析報告，包含：
 
