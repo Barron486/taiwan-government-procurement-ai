@@ -438,13 +438,158 @@
                                 <button type="button" class="btn btn-secondary btn-lg me-3" onclick="clearSearch()">
                                     <i class="fas fa-times me-2"></i>清除
                                 </button>
-                                <button type="button" class="btn btn-info btn-lg" onclick="showSearchHelp()">
+                                <button type="button" class="btn btn-info btn-lg me-3" onclick="showSearchHelp()">
                                     <i class="fas fa-question-circle me-2"></i>搜尋說明
+                                </button>
+                                <button type="button" class="btn btn-warning btn-lg" onclick="toggleAutoMonitor()">
+                                    <i class="fas fa-clock me-2"></i>自動監控
                                 </button>
                             </div>
                             <div class="text-muted small">
                                 <i class="fas fa-info-circle me-1"></i>
                                 可同時使用多個搜尋條件，系統會自動組合搜尋
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 自動監控設定區塊 -->
+                    <div id="autoMonitorSection" class="mt-4" style="display: none;">
+                        <div class="card border-warning">
+                            <div class="card-header bg-warning bg-opacity-10 border-warning">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-bell me-2"></i>自動監控設定
+                                    <span class="badge bg-success ms-2" id="monitorStatus">已停用</span>
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <!-- 監控關鍵字設定 -->
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold">
+                                        <i class="fas fa-tags me-1"></i>監控關鍵字
+                                        <small class="text-muted">(每行一個關鍵字)</small>
+                                    </label>
+                                    <textarea class="form-control" id="monitorKeywords" rows="5" 
+                                              placeholder="輸入要監控的關鍵字，每行一個&#10;例如：&#10;醫療設備&#10;資訊系統&#10;辦公用品"></textarea>
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-lightbulb me-1"></i>系統會使用這些關鍵字搜尋標案名稱
+                                    </small>
+                                </div>
+                                
+                                <!-- 監控時間設定 -->
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold">
+                                        <i class="fas fa-clock me-1"></i>自動搜尋時間
+                                    </label>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-2">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="monitor08" checked>
+                                                <label class="form-check-label" for="monitor08">
+                                                    <i class="fas fa-sun me-1 text-warning"></i>每天 08:00 自動搜尋
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 mb-2">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="monitor17" checked>
+                                                <label class="form-check-label" for="monitor17">
+                                                    <i class="fas fa-moon me-1 text-info"></i>每天 17:00 自動搜尋
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 監控範圍設定 -->
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold">
+                                        <i class="fas fa-calendar me-1"></i>搜尋範圍
+                                    </label>
+                                    <select class="form-select" id="monitorDateRange">
+                                        <option value="today" selected>僅今日</option>
+                                        <option value="last3days">最近3天</option>
+                                        <option value="last7days">最近7天</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- 通知設定 -->
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold">
+                                        <i class="fas fa-bell me-1"></i>通知設定
+                                    </label>
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="monitorNotifyBrowser" checked>
+                                        <label class="form-check-label" for="monitorNotifyBrowser">
+                                            <i class="fas fa-desktop me-1"></i>瀏覽器通知（需授權）
+                                        </label>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="monitorNotifySound" checked>
+                                        <label class="form-check-label" for="monitorNotifySound">
+                                            <i class="fas fa-volume-up me-1"></i>聲音提醒
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <!-- 下次執行時間顯示 -->
+                                <div class="alert alert-info mb-4">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>下次自動搜尋時間：</strong>
+                                    <span id="nextAutoSearch">未啟用</span>
+                                </div>
+                                
+                                <!-- 控制按鈕 -->
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-success" onclick="startAutoMonitor()">
+                                        <i class="fas fa-play me-1"></i>啟動監控
+                                    </button>
+                                    <button type="button" class="btn btn-danger" onclick="stopAutoMonitor()">
+                                        <i class="fas fa-stop me-1"></i>停止監控
+                                    </button>
+                                    <button type="button" class="btn btn-primary" onclick="testAutoMonitor()">
+                                        <i class="fas fa-vial me-1"></i>立即測試
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" onclick="saveMonitorSettings()">
+                                        <i class="fas fa-save me-1"></i>儲存設定
+                                    </button>
+                                    <button type="button" class="btn btn-info" onclick="showMonitorHistory()">
+                                        <i class="fas fa-history me-1"></i>監控記錄
+                                    </button>
+                                </div>
+                                
+                                <!-- 監控統計 -->
+                                <div class="mt-4 p-3 bg-light rounded">
+                                    <div class="row text-center">
+                                        <div class="col-md-3">
+                                            <div class="mb-2">
+                                                <i class="fas fa-search fa-2x text-primary"></i>
+                                            </div>
+                                            <div class="fw-bold" id="monitorSearchCount">0</div>
+                                            <small class="text-muted">今日搜尋次數</small>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="mb-2">
+                                                <i class="fas fa-file-alt fa-2x text-success"></i>
+                                            </div>
+                                            <div class="fw-bold" id="monitorResultCount">0</div>
+                                            <small class="text-muted">發現標案數</small>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="mb-2">
+                                                <i class="fas fa-star fa-2x text-warning"></i>
+                                            </div>
+                                            <div class="fw-bold" id="monitorNewCount">0</div>
+                                            <small class="text-muted">新增標案數</small>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="mb-2">
+                                                <i class="fas fa-clock fa-2x text-info"></i>
+                                            </div>
+                                            <div class="fw-bold" id="monitorLastTime">--:--</div>
+                                            <small class="text-muted">最後搜尋時間</small>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -511,6 +656,17 @@
                             </div>
                         </div>
                         
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div id="resultStats" class="text-muted me-3"></div>
+                            <div class="d-flex align-items-center gap-2">
+                                <label for="pageSize" class="form-label mb-0">每頁顯示</label>
+                                <select id="pageSize" class="form-select form-select-sm" style="width: auto;" onchange="changePageSize(this.value)">
+                                    <option value="10">10筆</option>
+                                    <option value="50">50筆</option>
+                                    <option value="100">100筆</option>
+                                </select>
+                            </div>
+                        </div>
                         <div id="resultsList"></div>
                         <div id="pagination" class="mt-4"></div>
                     </div>
@@ -555,6 +711,53 @@
 
     <script>
         const API_BASE = 'https://pcc-api.openfun.app/api';
+        const API_BASES = [
+            'https://pcc-api.openfun.app/api',
+            'https://pcc.g0v.ronny.tw/api'
+        ];
+
+        // 以多個 API_BASES 進行逾時+重試+備援切換
+        async function fetchFromApis(path, options = {}, timeoutMs = 10000, retriesPerBase = 2) {
+            let lastError = null;
+            const tried = [];
+            
+            for (const base of API_BASES) {
+                for (let attempt = 1; attempt <= retriesPerBase; attempt++) {
+                    const url = `${base}${path}`;
+                    tried.push(url);
+                    
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+                        
+                        const resp = await fetch(url, { 
+                            ...options, 
+                            signal: controller.signal 
+                        });
+                        
+                        clearTimeout(timeoutId);
+                        
+                        if (!resp.ok) {
+                            const errorText = await resp.text();
+                            throw new Error(`HTTP ${resp.status}: ${resp.statusText} - ${errorText}`);
+                        }
+                        
+                        return { resp, url };
+                    } catch (err) {
+                        lastError = err;
+                        console.warn(`API 請求失敗 (來源: ${base}, 嘗試 ${attempt}/${retriesPerBase}): ${err.message}`);
+                        
+                        // 如果還有重試機會，等待後重試
+                        if (attempt < retriesPerBase) {
+                            await new Promise(r => setTimeout(r, attempt * 800));
+                        }
+                    }
+                }
+            }
+            
+            const errorMessage = `所有 API 來源均失敗。最後錯誤: ${lastError?.message || '未知錯誤'}. 已嘗試來源: ${tried.join(' , ')}`;
+            throw new Error(errorMessage);
+        }
         let currentTimeRange = 0; // 0 = 今日
         let searchResults = [];
         
@@ -1041,11 +1244,7 @@
                     const logicText = searchLogic === 'and' ? 'AND' : 'OR';
                     showMessage(`搜尋完成！找到 ${allResults.length} 筆資料${typeText}（使用 ${logicText} 邏輯，${searchCount} 個搜尋條件）`, 'success');
                     
-                    // 如果有 Gemini API Key，進行 AI 分析
-                    const geminiKey = document.getElementById('geminiKey').value.trim();
-                    if (geminiKey) {
-                        performAIAnalysis(allResults, geminiKey);
-                    }
+                    // 已取消自動 AI 分析，如需分析請手動點擊「AI 分析」按鈕
                 } else {
                     console.log('沒有找到符合條件的資料');
                     showMessage('沒有找到符合條件的資料', 'error');
@@ -1135,11 +1334,10 @@ ${JSON.stringify(sampleResults.slice(0, 5), null, 2)}
 }
 `;
 
-                const analysisResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`, {
+                const analysisResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiKey}`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'X-goog-api-key': geminiKey
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         contents: [{
@@ -1213,11 +1411,10 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
 `;
 
                 try {
-                    const rankingResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`, {
+                    const rankingResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiKey}`, {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json',
-                            'X-goog-api-key': geminiKey
+                            'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
                             contents: [{
@@ -1285,24 +1482,24 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
         
         // 搜尋所有資料（不限制日期）
         async function searchAllData(searchType, query, page) {
-            let url = '';
+            let path = '';
             let params = new URLSearchParams();
             
             if (searchType === 'unit') {
-                url = `${API_BASE}/listbyunit`;
+                path = '/listbyunit';
                 params.append('unit_id', query);
             } else {
                 switch(searchType) {
                     case 'companyname':
-                        url = `${API_BASE}/searchbycompanyname`;
+                        path = '/searchbycompanyname';
                         params.append('query', query);
                         break;
                     case 'companyid':
-                        url = `${API_BASE}/searchbycompanyid`;
+                        path = '/searchbycompanyid';
                         params.append('query', query);
                         break;
                     case 'title':
-                        url = `${API_BASE}/searchbytitle`;
+                        path = '/searchbytitle';
                         params.append('query', query);
                         break;
                 }
@@ -1310,14 +1507,15 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
             
             params.append('page', page);
             
-            const fullUrl = `${url}?${params.toString()}`;
-            console.log(`API 調用: ${fullUrl}`);
+            const fullPath = `${path}?${params.toString()}`;
+            console.log(`API 調用路徑: ${fullPath}`);
             
-            const response = await fetch(fullUrl);
+            const { resp: response, url: usedUrl } = await fetchFromApis(fullPath, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            }, 10000, 1);  // 減少重試次數從 2 次到 1 次
             
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
+            console.log(`成功使用 API: ${usedUrl}`);
             
             const data = await response.json();
             console.log(`API 回應:`, data);
@@ -1482,6 +1680,21 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
             filterAndDisplayResults();
         }
         
+        // 分頁狀態
+        let pageSize = 10;
+        let currentPage = 1;
+
+        function changePageSize(value) {
+            pageSize = parseInt(value) || 10;
+            currentPage = 1;
+            filterAndDisplayResults();
+        }
+
+        function goToPage(page) {
+            currentPage = page;
+            filterAndDisplayResults();
+        }
+
         // 過濾和顯示結果
         function filterAndDisplayResults() {
             const resultsList = document.getElementById('resultsList');
@@ -1498,20 +1711,45 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
             // 排序
             filteredResults = sortResultsBy(filteredResults, sortBy);
             
-            // 清空並重新顯示
+            // 分頁
+            const total = filteredResults.length;
+            const totalPages = Math.max(1, Math.ceil(total / pageSize));
+            if (currentPage > totalPages) currentPage = totalPages;
+            const start = (currentPage - 1) * pageSize;
+            const end = Math.min(start + pageSize, total);
+
+            // 顯示當頁
             resultsList.innerHTML = '';
-            
-            filteredResults.forEach((record, index) => {
-                const resultItem = createResultItem(record, index, window.isGeminiSearch || false);
+            filteredResults.slice(start, end).forEach((record, idx) => {
+                const resultItem = createResultItem(record, start + idx, window.isGeminiSearch || false);
                 resultsList.appendChild(resultItem);
             });
+
+            // 分頁 UI
+            const pagination = document.getElementById('pagination');
+            const createPageBtn = (label, page, disabled = false, active = false) => {
+                return `<li class=\"page-item ${disabled ? 'disabled' : ''} ${active ? 'active' : ''}\"><a class=\"page-link\" href=\"javascript:void(0)\" onclick=\"${!disabled ? `goToPage(${page})` : ''}\">${label}</a></li>`;
+            };
+            let pagesHtml = '<nav><ul class="pagination pagination-sm">';
+            pagesHtml += createPageBtn('«', 1, currentPage === 1);
+            pagesHtml += createPageBtn('‹', Math.max(1, currentPage - 1), currentPage === 1);
+            const windowSize = 5;
+            const startPage = Math.max(1, currentPage - Math.floor(windowSize / 2));
+            const endPage = Math.min(totalPages, startPage + windowSize - 1);
+            for (let p = startPage; p <= endPage; p++) {
+                pagesHtml += createPageBtn(p, p, false, p === currentPage);
+            }
+            pagesHtml += createPageBtn('›', Math.min(totalPages, currentPage + 1), currentPage === totalPages);
+            pagesHtml += createPageBtn('»', totalPages, currentPage === totalPages);
+            pagesHtml += '</ul></nav>';
+            pagination.innerHTML = pagesHtml;
             
             // 更新統計
             const resultStats = document.getElementById('resultStats');
             resultStats.innerHTML = `
                 <div class="stats-card">
-                    <div class="stats-number">${filteredResults.length}</div>
-                    <div class="stats-label">顯示標案</div>
+                    <div class="stats-number">${total === 0 ? 0 : (start + 1)}-${end}</div>
+                    <div class="stats-label">顯示標案（共 ${total} 筆）</div>
                 </div>
             `;
         }
@@ -1593,6 +1831,11 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                         <small class="text-muted"><i class="fas fa-hashtag me-1"></i>代碼: ${record.job_number || '未知'}</small>
                     </div>
                     <div class="col-md-3">
+                        <small class="text-muted"><i class="fas fa-coins me-1"></i>預算: <span class="budget-amount" data-unit-id="${record.unit_id || ''}" data-job-number="${record.job_number || ''}">${(record.detail && record.detail['採購資料:預算金額']) ? record.detail['採購資料:預算金額'] : '載入中…'}</span></small>
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-md-12">
                         <small class="text-muted"><i class="fas fa-tag me-1"></i>分類: ${brief.category || '未知'}</small>
                     </div>
                 </div>
@@ -1616,21 +1859,66 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                             <i class="fas fa-share-alt me-1"></i>分享
                         </button>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="shareToLine('${(brief.title || '無標題').replace(/'/g, "\\'")}', '${(record.unit_name || '未知機關').replace(/'/g, "\\'")}', '${buildGovUrl(record)}')">
+                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="shareToLineAsync('${(brief.title || '無標題').replace(/'/g, "\\'")}', '${(record.unit_name || '未知機關').replace(/'/g, "\\'")}', '${record.unit_id || ''}', '${record.job_number || ''}')">
                                 <i class="fab fa-line text-success me-2"></i>分享到 Line
                             </a></li>
-                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="shareToGmail('${(brief.title || '無標題').replace(/'/g, "\\'")}', '${(record.unit_name || '未知機關').replace(/'/g, "\\'")}', '${record.job_number || '未知'}', '${buildGovUrl(record)}')">
+                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="shareToGmailAsync('${(brief.title || '無標題').replace(/'/g, "\\'")}', '${(record.unit_name || '未知機關').replace(/'/g, "\\'")}', '${record.job_number || '未知'}', '${record.unit_id || ''}', '${record.job_number || ''}')">
                                 <i class="fas fa-envelope text-danger me-2"></i>分享到 Gmail
                             </a></li>
-                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="copyLink('${buildGovUrl(record)}', '${(brief.title || '無標題').replace(/'/g, "\\'")}')">
+                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="copyLinkAsync('${(brief.title || '無標題').replace(/'/g, "\\'")}', '${record.unit_id || ''}', '${record.job_number || ''}')">
                                 <i class="fas fa-copy text-primary me-2"></i>複製連結
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="${buildGovUrl(record)}" target="_blank">
+                                <i class="fas fa-external-link-alt me-2"></i>前往政府採購網頁面
                             </a></li>
                         </ul>
                     </div>
                 </div>
             `;
             
+            // 非同步載入預算金額（使用本專案 API），含快取與重試
+            try {
+                const budgetSpan = div.querySelector('.budget-amount');
+                const unitId = budgetSpan?.dataset.unitId;
+                const jobNumber = budgetSpan?.dataset.jobNumber;
+                if (budgetSpan && unitId && jobNumber && budgetSpan.textContent.includes('載入中')) {
+                    loadAndFillBudget(budgetSpan, unitId, jobNumber);
+                }
+            } catch (e) {
+                console.warn('載入預算金額時發生例外:', e);
+            }
+
             return div;
+        }
+
+        const budgetCache = new Map();
+        async function loadAndFillBudget(el, unitId, jobNumber) {
+            const cacheKey = `${unitId}::${jobNumber}`;
+            if (budgetCache.has(cacheKey)) {
+                el.textContent = budgetCache.get(cacheKey);
+                return;
+            }
+            try {
+                // 只使用 fetchFromApis 的內建重試機制（1次重試），避免過多 API 請求
+                const { resp } = await fetchFromApis(`/tender?unit_id=${encodeURIComponent(unitId)}&job_number=${encodeURIComponent(jobNumber)}`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                }, 10000, 1);  // 每個來源只重試 1 次
+                const data = await resp.json();
+                const rec = (data.records && data.records[0]) || data;
+                const amount = rec?.detail?.['採購資料:預算金額'] || rec?.brief?.budget || '';
+                if (amount) {
+                    budgetCache.set(cacheKey, amount);
+                    el.textContent = amount;
+                } else {
+                    el.textContent = '無資料';
+                }
+            } catch (err) {
+                console.warn('預算金額載入失敗（可能是速率限制）：', unitId, jobNumber);
+                el.textContent = '點擊詳細查看';
+                el.title = `點擊「詳細資料」查看完整資訊`;
+            }
         }
 
         // 獲取標案詳細資訊來構建正確的政府採購網連結
@@ -1650,6 +1938,14 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                 console.error('獲取標案詳細資訊失敗:', error);
                 return '#';
             }
+        }
+
+        // 取得標案識別碼 pkPmsMain（若有詳細資料）
+        function getPkPmsMain(record) {
+            if (record && record.detail && record.detail.pkPmsMain) {
+                return record.detail.pkPmsMain;
+            }
+            return '';
         }
 
         // 構建政府採購網 URL
@@ -1779,269 +2075,257 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
 
         // 顯示詳細資料
         async function showDetail(unitId, jobNumber, date) {
-            const maxRetries = 3;
-            let lastError = null;
-            
-            for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                try {
-                    showMessage(`正在載入標案詳細資料... (嘗試 ${attempt}/${maxRetries})`, 'info');
-                    
-                    console.log(`正在請求詳細資料 (嘗試 ${attempt}): ${API_BASE}/tender?unit_id=${unitId}&job_number=${jobNumber}`);
-                    
-                    // 添加超時控制
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超時
-                    
-                    const response = await fetch(`${API_BASE}/tender?unit_id=${unitId}&job_number=${jobNumber}`, {
-                        method: 'GET',
-                        headers: {
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json',
-                            'Cache-Control': 'no-cache'
-                        },
-                        mode: 'cors',
-                        signal: controller.signal
-                    });
-                    
-                    clearTimeout(timeoutId);
-                    
-                    console.log('API 回應狀態:', response.status, response.statusText);
-                    
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error('API 錯誤回應:', errorText);
-                        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+            try {
+                showMessage('正在載入標案詳細資料...', 'info');
+
+                const { resp, url } = await fetchFromApis(`/tender?unit_id=${encodeURIComponent(unitId)}&job_number=${encodeURIComponent(jobNumber)}`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
                     }
-                    
-                    const data = await response.json();
-                    console.log('API 回應資料:', data);
-                    
-                    // 成功取得資料，跳出重試迴圈
-                    // 取得所有記錄
-                    const records = data.records || [data];
-                    const currentRecord = records[0];
-                    const brief = currentRecord.brief || {};
-                    const detail = currentRecord.detail || {};
-                    
-                    // 格式化日期
-                    const dateStr = currentRecord.date ? currentRecord.date.toString() : date.toString();
-                    const formattedDate = `${dateStr.substring(0,4)}年${dateStr.substring(4,6)}月${dateStr.substring(6,8)}日`;
-                    
-                    // 生成分頁按鈕
-                    const paginationButtons = records.length > 1 ? `
-                        <div class="mb-3">
-                            <h6>標案進度分頁</h6>
-                            <div class="btn-group" role="group">
-                                ${records.map((record, index) => {
-                                    const recordDate = record.date ? record.date.toString() : '';
-                                    const recordFormattedDate = recordDate ? `${recordDate.substring(0,4)}年${recordDate.substring(4,6)}月${recordDate.substring(6,8)}日` : '';
-                                    const recordType = record.brief?.type || '無資料';
-                                    const isActive = index === 0 ? 'active' : '';
-                                    return `
-                                        <button type="button" class="btn btn-outline-primary btn-sm ${isActive}" 
-                                                onclick="switchTenderRecord(${index})" 
-                                                data-record-index="${index}">
-                                            ${recordFormattedDate}<br>
-                                            <small>${recordType}</small>
-                                        </button>
-                                    `;
-                                }).join('')}
-                            </div>
+                }, 12000, 1);  // 減少重試次數從 2 次到 1 次
+
+                console.log('成功使用 API:', url);
+                console.log('API 回應狀態:', resp.status, resp.statusText);
+                const data = await resp.json();
+                console.log('API 回應資料:', data);
+                
+                // 取得所有記錄
+                const records = data.records || [data];
+                const currentRecord = records[0];
+                const brief = currentRecord.brief || {};
+                const detail = currentRecord.detail || {};
+                
+                // 格式化日期
+                const dateStr = currentRecord.date ? currentRecord.date.toString() : date.toString();
+                const formattedDate = `${dateStr.substring(0,4)}年${dateStr.substring(4,6)}月${dateStr.substring(6,8)}日`;
+                
+                // 生成分頁按鈕
+                const paginationButtons = records.length > 1 ? `
+                    <div class="mb-3">
+                        <h6>標案進度分頁</h6>
+                        <div class="btn-group" role="group">
+                            ${records.map((record, index) => {
+                                const recordDate = record.date ? record.date.toString() : '';
+                                const recordFormattedDate = recordDate ? `${recordDate.substring(0,4)}年${recordDate.substring(4,6)}月${recordDate.substring(6,8)}日` : '';
+                                const recordType = record.brief?.type || '無資料';
+                                const isActive = index === 0 ? 'active' : '';
+                                return `
+                                    <button type="button" class="btn btn-outline-primary btn-sm ${isActive}" 
+                                            onclick="switchTenderRecord(${index})" 
+                                            data-record-index="${index}">
+                                        ${recordFormattedDate}<br>
+                                        <small>${recordType}</small>
+                                    </button>
+                                `;
+                            }).join('')}
                         </div>
-                    ` : '';
-                    
-                    // 顯示詳細資料
-                    const detailHtml = `
-                        <div class="modal fade" id="detailModal" tabindex="-1">
-                            <div class="modal-dialog modal-xl">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">標案詳細資料</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        ${paginationButtons}
+                    </div>
+                ` : '';
+                
+                // 顯示詳細資料
+                const detailHtml = `
+                    <div class="modal fade" id="detailModal" tabindex="-1">
+                        <div class="modal-dialog modal-xl">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">標案詳細資料</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    ${paginationButtons}
+                                    
+                                    <div id="tenderDetailContent">
+                                        <h6>基本資訊</h6>
+                                        <table class="table table-sm">
+                                            <tr><td><strong>標案名稱</strong></td><td>${brief.title || '無資料'}</td></tr>
+                                            <tr><td><strong>標案類型</strong></td><td>${brief.type || '無資料'}</td></tr>
+                                            <tr><td><strong>發布日期</strong></td><td>${formattedDate}</td></tr>
+                                            <tr><td><strong>機關名稱</strong></td><td>${detail['機關資料:機關名稱'] || '無資料'}</td></tr>
+                                            <tr><td><strong>標案編號</strong></td><td>${currentRecord.job_number || '無資料'}</td></tr>
+                                            <tr><td><strong>機關代碼</strong></td><td>${currentRecord.unit_id || '無資料'}</td></tr>
+                                            <tr><td><strong>分類</strong></td><td>${brief.category || '無資料'}</td></tr>
+                                            <tr><td><strong>預算金額</strong></td><td>${detail['採購資料:預算金額'] || '無資料'}</td></tr>
+                                        </table>
                                         
-                                        <div id="tenderDetailContent">
-                                            <h6>基本資訊</h6>
-                                            <table class="table table-sm">
-                                                <tr><td><strong>標案名稱</strong></td><td>${brief.title || '無資料'}</td></tr>
-                                                <tr><td><strong>標案類型</strong></td><td>${brief.type || '無資料'}</td></tr>
-                                                <tr><td><strong>發布日期</strong></td><td>${formattedDate}</td></tr>
-                                                <tr><td><strong>機關名稱</strong></td><td>${detail['機關資料:機關名稱'] || '無資料'}</td></tr>
-                                                <tr><td><strong>標案編號</strong></td><td>${currentRecord.job_number || '無資料'}</td></tr>
-                                                <tr><td><strong>機關代碼</strong></td><td>${currentRecord.unit_id || '無資料'}</td></tr>
-                                                <tr><td><strong>分類</strong></td><td>${brief.category || '無資料'}</td></tr>
-                                                <tr><td><strong>預算金額</strong></td><td>${detail['採購資料:預算金額'] || '無資料'}</td></tr>
-                                            </table>
-                                            
-                                            <h6 class="mt-3">招標資訊</h6>
-                                            <table class="table table-sm">
-                                                <tr><td><strong>招標方式</strong></td><td>${detail['招標資料:招標方式'] || '無資料'}</td></tr>
-                                                <tr><td><strong>決標方式</strong></td><td>${detail['招標資料:決標方式'] || '無資料'}</td></tr>
-                                                <tr><td><strong>開標時間</strong></td><td>${detail['領投開標:開標時間'] || '無資料'}</td></tr>
-                                                <tr><td><strong>開標地點</strong></td><td>${detail['領投開標:開標地點'] || '無資料'}</td></tr>
-                                                <tr><td><strong>截止投標</strong></td><td>${detail['領投開標:截止投標'] || '無資料'}</td></tr>
-                                                <tr><td><strong>押標金</strong></td><td>${detail['領投開標:是否須繳納押標金:押標金額度'] || '無資料'}</td></tr>
-                                            </table>
-                                            
-                                            <div class="mt-3">
-                                                <h6>重要時間提醒</h6>
-                                                <div class="d-flex gap-2 flex-wrap">
-                                                    ${detail['領投開標:開標時間'] ? `
-                                                        <button class="btn btn-outline-primary btn-sm" 
-                                                                onclick="addToCalendar('${brief.title || '標案'} - 開標', '${detail['領投開標:開標時間']}', '${detail['領投開標:開標地點'] || detail['機關資料:機關名稱'] || '政府機關'}', '${buildGovUrl(currentRecord)}')">
-                                                            <i class="fas fa-calendar-plus me-1"></i>開標時間加入行事曆
-                                                        </button>
-                                                    ` : ''}
-                                                    ${detail['領投開標:截止投標'] ? `
-                                                        <button class="btn btn-outline-warning btn-sm" 
-                                                                onclick="addToCalendar('${brief.title || '標案'} - 截止投標', '${detail['領投開標:截止投標']}', '${detail['領投開標:開標地點'] || detail['機關資料:機關名稱'] || '政府機關'}', '${buildGovUrl(currentRecord)}')">
-                                                            <i class="fas fa-calendar-times me-1"></i>截止投標加入行事曆
-                                                        </button>
-                                                    ` : ''}
-                                                </div>
+                                        <h6 class="mt-3">招標資訊</h6>
+                                        <table class="table table-sm">
+                                            <tr><td><strong>招標方式</strong></td><td>${detail['招標資料:招標方式'] || '無資料'}</td></tr>
+                                            <tr><td><strong>決標方式</strong></td><td>${detail['招標資料:決標方式'] || '無資料'}</td></tr>
+                                            <tr><td><strong>開標時間</strong></td><td>${detail['領投開標:開標時間'] || '無資料'}</td></tr>
+                                            <tr><td><strong>開標地點</strong></td><td>${detail['領投開標:開標地點'] || '無資料'}</td></tr>
+                                            <tr><td><strong>截止投標</strong></td><td>${detail['領投開標:截止投標'] || '無資料'}</td></tr>
+                                            <tr><td><strong>押標金</strong></td><td>${detail['領投開標:是否須繳納押標金:押標金額度'] || '無資料'}</td></tr>
+                                        </table>
+                                        
+                                        <div class="mt-3">
+                                            <h6>重要時間提醒</h6>
+                                            <div class="d-flex gap-2 flex-wrap">
+                                                ${detail['領投開標:開標時間'] ? `
+                                                    <button class="btn btn-outline-primary btn-sm" 
+                                                            onclick="addToCalendar('${brief.title || '標案'} - 開標', '${detail['領投開標:開標時間']}', '${detail['領投開標:開標地點'] || detail['機關資料:機關名稱'] || '政府機關'}', '${buildGovUrl(currentRecord)}')">
+                                                        <i class="fas fa-calendar-plus me-1"></i>開標時間加入行事曆
+                                                    </button>
+                                                ` : ''}
+                                                ${detail['領投開標:截止投標'] ? `
+                                                    <button class="btn btn-outline-warning btn-sm" 
+                                                            onclick="addToCalendar('${brief.title || '標案'} - 截止投標', '${detail['領投開標:截止投標']}', '${detail['領投開標:開標地點'] || detail['機關資料:機關名稱'] || '政府機關'}', '${buildGovUrl(currentRecord)}')">
+                                                        <i class="fas fa-calendar-times me-1"></i>截止投標加入行事曆
+                                                    </button>
+                                                ` : ''}
                                             </div>
-                                            
-                                            ${brief.companies?.names?.length > 0 ? `
-                                                <h6 class="mt-3">相關公司</h6>
-                                                <ul>
-                                                    ${brief.companies.names.map(name => `<li>${name}</li>`).join('')}
-                                                </ul>
-                                            ` : '<p class="mt-3">無相關公司資料</p>'}
-                                            
-                                            <div class="mt-3">
-                                                <a href="${buildGovUrl(currentRecord)}" target="_blank" class="btn btn-primary me-2">
-                                                    <i class="fas fa-external-link-alt me-1"></i>查看完整標案頁面
-                                                </a>
-                                                <button class="btn btn-secondary me-2" onclick="closeDetailModal()">
-                                                    <i class="fas fa-times me-1"></i>關閉此頁面
-                                                </button>
-                                            </div>
+                                        </div>
+                                        
+                                        ${brief.companies?.names?.length > 0 ? `
+                                            <h6 class="mt-3">相關公司</h6>
+                                            <ul>
+                                                ${brief.companies.names.map(name => `<li>${name}</li>`).join('')}
+                                            </ul>
+                                        ` : '<p class="mt-3">無相關公司資料</p>'}
+                                        
+                                        <div class="mt-3">
+                                            <a href="${buildGovUrl(currentRecord)}" target="_blank" class="btn btn-primary me-2">
+                                                <i class="fas fa-external-link-alt me-1"></i>查看完整標案頁面
+                                            </a>
+                                            <button class="btn btn-secondary me-2" onclick="closeDetailModal()">
+                                                <i class="fas fa-times me-1"></i>關閉此頁面
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    `;
-                    
-                    // 儲存記錄資料供分頁使用
-                    window.tenderRecords = records;
-                    
-                    // 移除舊的 modal（包括 backdrop）
-                    const oldModal = document.getElementById('detailModal');
-                    if (oldModal) {
-                        console.log('移除舊的 modal');
-                        const bsModal = bootstrap.Modal.getInstance(oldModal);
-                        if (bsModal) {
-                            bsModal.dispose();
-                        }
-                        oldModal.remove();
+                    </div>
+                `;
+                
+                // 儲存記錄資料供分頁使用
+                window.tenderRecords = records;
+                
+                // 移除舊的 modal（包括 backdrop）
+                const oldModal = document.getElementById('detailModal');
+                if (oldModal) {
+                    console.log('移除舊的 modal');
+                    const bsModal = bootstrap.Modal.getInstance(oldModal);
+                    if (bsModal) {
+                        bsModal.dispose();
                     }
-                    // 移除可能殘留的 backdrop
-                    document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
-                        console.log('移除殘留的 backdrop');
-                        backdrop.remove();
+                    oldModal.remove();
+                }
+                // 移除可能殘留的 backdrop
+                document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+                    console.log('移除殘留的 backdrop');
+                    backdrop.remove();
+                });
+                
+                // 確保 body 沒有 modal-open class
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+                document.body.style.paddingRight = '';
+                
+                // 添加新的 modal
+                console.log('添加新的 modal');
+                document.body.insertAdjacentHTML('beforeend', detailHtml);
+                
+                // 顯示 modal
+                const modalElement = document.getElementById('detailModal');
+                if (!modalElement) {
+                    throw new Error('無法創建 modal 元素');
+                }
+                
+                console.log('初始化 Bootstrap Modal');
+                try {
+                    const modal = new bootstrap.Modal(modalElement, {
+                        backdrop: true,
+                        keyboard: true,
+                        focus: true
                     });
                     
-                    // 確保 body 沒有 modal-open class
-                    document.body.classList.remove('modal-open');
-                    document.body.style.overflow = '';
-                    document.body.style.paddingRight = '';
+                    console.log('顯示 modal');
+                    modal.show();
                     
-                    // 添加新的 modal
-                    console.log('添加新的 modal');
-                    document.body.insertAdjacentHTML('beforeend', detailHtml);
+                    // 監聽 modal 顯示事件
+                    modalElement.addEventListener('shown.bs.modal', function () {
+                        console.log('Modal 已成功顯示');
+                    });
                     
-                    // 顯示 modal
-                    const modalElement = document.getElementById('detailModal');
-                    if (!modalElement) {
-                        throw new Error('無法創建 modal 元素');
-                    }
+                    // 監聽 modal 隱藏事件
+                    modalElement.addEventListener('hidden.bs.modal', function () {
+                        console.log('Modal 已關閉');
+                        // 清理
+                        modalElement.remove();
+                        document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+                    });
                     
-                    console.log('初始化 Bootstrap Modal');
-                    try {
-                        const modal = new bootstrap.Modal(modalElement, {
-                            backdrop: true,
-                            keyboard: true,
-                            focus: true
-                        });
-                        
-                        console.log('顯示 modal');
-                        modal.show();
-                        
-                        // 監聽 modal 顯示事件
-                        modalElement.addEventListener('shown.bs.modal', function () {
-                            console.log('Modal 已成功顯示');
-                        });
-                        
-                        // 監聽 modal 隱藏事件
-                        modalElement.addEventListener('hidden.bs.modal', function () {
-                            console.log('Modal 已關閉');
-                            // 清理
-                            modalElement.remove();
-                            document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
-                        });
-                        
-                    } catch (modalError) {
-                        console.error('Modal 初始化錯誤:', modalError);
-                        throw new Error(`Modal 初始化失敗: ${modalError.message}`);
-                    }
-                    
-                    // 清除載入訊息
-                    console.log('詳細資料載入完成');
-                    
-                    // 成功載入，跳出重試迴圈
-                    return;
-                    
-                } catch (error) {
-                    console.error(`載入詳細資料錯誤 (嘗試 ${attempt}):`, error);
-                    lastError = error;
-                    
-                    // 如果不是最後一次嘗試，等待後重試
-                    if (attempt < maxRetries) {
-                        console.log(`等待 ${attempt * 1000}ms 後重試...`);
-                        await new Promise(resolve => setTimeout(resolve, attempt * 1000));
-                    }
+                } catch (modalError) {
+                    console.error('Modal 初始化錯誤:', modalError);
+                    throw new Error(`Modal 初始化失敗: ${modalError.message}`);
                 }
+                
+                // 清除載入訊息
+                hideMessage();
+                console.log('詳細資料載入完成');
+                
+            } catch (error) {
+                console.error('載入詳細資料錯誤:', error);
+                
+                let errorMessage = '載入詳細資料失敗：<br>';
+                
+                // 解析錯誤訊息
+                if (error.message.includes('所有 API 來源均失敗')) {
+                    errorMessage += '無法連接到任何 API 來源<br>';
+                    errorMessage += `<small class="text-muted">錯誤詳情：${error.message}</small>`;
+                } else if (error.name === 'AbortError') {
+                    errorMessage += '請求超時，請檢查網路連線';
+                } else if (error.message.includes('HTTP')) {
+                    errorMessage += `API 回應錯誤：${error.message}`;
+                } else {
+                    errorMessage += `${error.message}`;
+                }
+                
+                errorMessage += `<br><br><small class="text-muted">標案資訊：${unitId} / ${jobNumber}</small>`;
+                errorMessage += `<br><small class="text-muted">建議：稍後再試，或嘗試重新整理頁面</small>`;
+                
+                showNotification('載入詳細資料失敗', errorMessage, 'error');
             }
-            
-            // 所有重試都失敗了
-            console.error('載入詳細資料失敗，已嘗試', maxRetries, '次');
-            console.error('最後錯誤:', lastError);
-            
-            let errorMessage = '載入詳細資料失敗：';
-            if (lastError.name === 'AbortError') {
-                errorMessage += '請求超時，請檢查網路連線';
-            } else if (lastError.name === 'TypeError' && lastError.message.includes('Failed to fetch')) {
-                errorMessage += '網路連線失敗，請檢查網路連線或稍後再試';
-            } else if (lastError.message.includes('CORS')) {
-                errorMessage += '跨域請求被阻擋，請檢查瀏覽器設定';
-            } else if (lastError.message.includes('Load failed')) {
-                errorMessage += '請求載入失敗，可能是 API 服務暫時無法使用';
-            } else if (lastError.message.includes('NetworkError')) {
-                errorMessage += '網路錯誤，請檢查網路連線';
-            } else {
-                errorMessage += `${lastError.message} (${lastError.name})`;
-            }
-            
-            // 添加調試資訊
-            errorMessage += `<br><small class="text-muted">API URL: ${API_BASE}/tender?unit_id=${unitId}&job_number=${jobNumber}</small>`;
-            errorMessage += `<br><small class="text-muted">已嘗試 ${maxRetries} 次重試</small>`;
-            
-            showNotification('載入詳細資料失敗', errorMessage, 'error');
         }
 
-        // 分享到 Line
-        function shareToLine(title, unitName, govUrl) {
+        // 非同步取得官方連結（優先取得 pkPmsMain）
+        const urlCache = new Map();
+        async function getOfficialUrl(unitId, jobNumber) {
+            const cacheKey = `${unitId}::${jobNumber}`;
+            if (urlCache.has(cacheKey)) {
+                return urlCache.get(cacheKey);
+            }
+            try {
+                const { resp } = await fetchFromApis(`/tender?unit_id=${encodeURIComponent(unitId)}&job_number=${encodeURIComponent(jobNumber)}`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                }, 10000, 1);
+                const data = await resp.json();
+                const rec = (data.records && data.records[0]) || data;
+                const url = buildGovUrl(rec);
+                urlCache.set(cacheKey, url);
+                return url;
+            } catch (err) {
+                console.warn('無法取得官方連結，使用備用:', err);
+                return `https://pcc.g0v.ronny.tw/tender.html?unit_id=${unitId}&job_number=${jobNumber}`;
+            }
+        }
+
+        // 分享到 Line（非同步取得官方連結）
+        async function shareToLineAsync(title, unitName, unitId, jobNumber) {
+            showNotification('正在準備分享連結...', 'info');
+            const govUrl = await getOfficialUrl(unitId, jobNumber);
             const message = `📋 ${title}\n🏢 機關：${unitName}\n🔗 連結：${govUrl}`;
             const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(message)}`;
             window.open(lineUrl, '_blank');
             showNotification('已開啟 Line 分享', '請選擇要分享的對象', 'success');
         }
 
-        // 分享到 Gmail
-        function shareToGmail(title, unitName, jobNumber, govUrl) {
+        // 分享到 Gmail（非同步取得官方連結）
+        async function shareToGmailAsync(title, unitName, jobNumber, unitId, jobNum) {
+            showNotification('正在準備分享連結...', 'info');
+            const govUrl = await getOfficialUrl(unitId, jobNum);
             const subject = `政府採購標案：${title}`;
             const body = `
 政府採購標案資訊
@@ -2062,11 +2346,13 @@ ${govUrl}
             showNotification('已開啟 Gmail', '請填寫收件人', 'success');
         }
 
-        // 複製連結
-        async function copyLink(govUrl, title) {
+        // 複製官方連結（非同步取得）
+        async function copyLinkAsync(title, unitId, jobNumber) {
+            showNotification('正在取得官方連結...', 'info');
+            const govUrl = await getOfficialUrl(unitId, jobNumber);
             try {
                 await navigator.clipboard.writeText(govUrl);
-                showNotification('連結已複製', `已複製「${title}」的連結到剪貼簿`, 'success');
+                showNotification('連結已複製', `已複製「${title}」的官方連結到剪貼簿`, 'success');
             } catch (error) {
                 // 備用方案：使用傳統的複製方法
                 const textArea = document.createElement('textarea');
@@ -2079,9 +2365,9 @@ ${govUrl}
                 
                 try {
                     document.execCommand('copy');
-                    showNotification('連結已複製', `已複製「${title}」的連結到剪貼簿`, 'success');
+                    showNotification('連結已複製', `已複製「${title}」的官方連結到剪貼簿`, 'success');
                 } catch (err) {
-                    showNotification('複製失敗', '請手動複製連結', 'error');
+                    showNotification('複製失敗', '無法複製連結，請手動複製', 'error');
                 }
                 
                 document.body.removeChild(textArea);
@@ -2217,11 +2503,10 @@ ${govUrl}
 請用繁體中文回答，提供專業、實用的建議。如果問題與標案無關，請禮貌地引導用戶回到標案相關話題。`;
                 
                 // 調用 Gemini API
-                const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiKey}`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'X-goog-api-key': geminiKey
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         contents: [{
@@ -2288,15 +2573,11 @@ ${govUrl}
 
         // 開啟公司分析頁面
         function openCompanyAnalysis(companyName) {
+            // 在新分頁中開啟公司分析頁面（不再強制要求 API Key）
             const geminiKey = document.getElementById('geminiKey').value.trim();
-            
-            if (!geminiKey) {
-                showNotification('需要 API Key', '請先輸入 Gemini API Key 才能進行公司分析', 'error');
-                return;
-            }
-
-            // 構建分析頁面 URL
-            const analysisUrl = `company_analysis.html?company=${encodeURIComponent(companyName)}&key=${encodeURIComponent(geminiKey)}`;
+            const analysisUrl = geminiKey 
+                ? `company_analysis.html?company=${encodeURIComponent(companyName)}&key=${encodeURIComponent(geminiKey)}`
+                : `company_analysis.html?company=${encodeURIComponent(companyName)}`;
             
             // 在新分頁中開啟
             window.open(analysisUrl, '_blank');
@@ -2542,11 +2823,10 @@ ${JSON.stringify(results.slice(0, 10), null, 2)}
 請以專業、簡潔的方式呈現分析結果，使用繁體中文。`;
 
                 // 調用 Gemini API
-                const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiKey}`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'X-goog-api-key': geminiKey
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         contents: [{
@@ -2584,6 +2864,386 @@ ${JSON.stringify(results.slice(0, 10), null, 2)}
                 document.getElementById('aiLoading').style.display = 'none';
             }
         }
+
+        // ==================== 自動監控功能 ====================
+        
+        let autoMonitorInterval = null;
+        let autoMonitorData = {
+            enabled: false,
+            keywords: [],
+            times: ['08:00', '17:00'],
+            dateRange: 'today',
+            notifyBrowser: true,
+            notifySound: true,
+            todaySearchCount: 0,
+            todayResultCount: 0,
+            todayNewCount: 0,
+            lastSearchTime: null,
+            searchHistory: [],
+            seenTenders: new Set()
+        };
+
+        // 載入監控設定
+        function loadMonitorSettings() {
+            const saved = localStorage.getItem('autoMonitorData');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    autoMonitorData = { ...autoMonitorData, ...data };
+                    // 將 seenTenders 從陣列轉換回 Set
+                    if (data.seenTenders && Array.isArray(data.seenTenders)) {
+                        autoMonitorData.seenTenders = new Set(data.seenTenders);
+                    }
+                    
+                    // 更新 UI
+                    if (autoMonitorData.keywords.length > 0) {
+                        document.getElementById('monitorKeywords').value = autoMonitorData.keywords.join('\n');
+                    }
+                    document.getElementById('monitorDateRange').value = autoMonitorData.dateRange;
+                    document.getElementById('monitor08').checked = autoMonitorData.times.includes('08:00');
+                    document.getElementById('monitor17').checked = autoMonitorData.times.includes('17:00');
+                    document.getElementById('monitorNotifyBrowser').checked = autoMonitorData.notifyBrowser;
+                    document.getElementById('monitorNotifySound').checked = autoMonitorData.notifySound;
+                    
+                    // 更新統計
+                    updateMonitorStats();
+                    
+                    // 如果之前已啟用，重新啟動
+                    if (autoMonitorData.enabled) {
+                        startAutoMonitor();
+                    }
+                } catch (e) {
+                    console.error('載入監控設定失敗:', e);
+                }
+            }
+        }
+
+        // 儲存監控設定
+        function saveMonitorSettings() {
+            const keywords = document.getElementById('monitorKeywords').value
+                .split('\n')
+                .map(k => k.trim())
+                .filter(k => k.length > 0);
+            
+            if (keywords.length === 0) {
+                showNotification('儲存失敗', '請至少輸入一個監控關鍵字', 'error');
+                return;
+            }
+            
+            autoMonitorData.keywords = keywords;
+            autoMonitorData.dateRange = document.getElementById('monitorDateRange').value;
+            autoMonitorData.notifyBrowser = document.getElementById('monitorNotifyBrowser').checked;
+            autoMonitorData.notifySound = document.getElementById('monitorNotifySound').checked;
+            
+            // 更新監控時間
+            const times = [];
+            if (document.getElementById('monitor08').checked) times.push('08:00');
+            if (document.getElementById('monitor17').checked) times.push('17:00');
+            autoMonitorData.times = times;
+            
+            // 儲存到 localStorage (將 Set 轉換為陣列)
+            const dataToSave = {
+                ...autoMonitorData,
+                seenTenders: Array.from(autoMonitorData.seenTenders)
+            };
+            localStorage.setItem('autoMonitorData', JSON.stringify(dataToSave));
+            
+            showNotification('儲存成功', `已儲存 ${keywords.length} 個監控關鍵字`, 'success');
+        }
+
+        // 切換自動監控面板
+        function toggleAutoMonitor() {
+            const section = document.getElementById('autoMonitorSection');
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                // 請求瀏覽器通知權限
+                if (document.getElementById('monitorNotifyBrowser').checked && 'Notification' in window) {
+                    Notification.requestPermission();
+                }
+            } else {
+                section.style.display = 'none';
+            }
+        }
+
+        // 啟動自動監控
+        function startAutoMonitor() {
+            // 先儲存設定
+            saveMonitorSettings();
+            
+            if (autoMonitorData.keywords.length === 0) {
+                showNotification('啟動失敗', '請先設定監控關鍵字', 'error');
+                return;
+            }
+            
+            if (autoMonitorData.times.length === 0) {
+                showNotification('啟動失敗', '請至少選擇一個自動搜尋時間', 'error');
+                return;
+            }
+            
+            autoMonitorData.enabled = true;
+            document.getElementById('monitorStatus').textContent = '運作中';
+            document.getElementById('monitorStatus').className = 'badge bg-success ms-2';
+            
+            // 清除舊的定時器
+            if (autoMonitorInterval) {
+                clearInterval(autoMonitorInterval);
+            }
+            
+            // 每分鐘檢查一次是否需要執行
+            autoMonitorInterval = setInterval(checkAndExecuteMonitor, 60000);
+            
+            // 立即檢查一次
+            checkAndExecuteMonitor();
+            
+            // 更新下次執行時間
+            updateNextSearchTime();
+            
+            showNotification('監控已啟動', `已啟動自動監控，將在 ${autoMonitorData.times.join('、')} 自動搜尋`, 'success');
+        }
+
+        // 停止自動監控
+        function stopAutoMonitor() {
+            autoMonitorData.enabled = false;
+            document.getElementById('monitorStatus').textContent = '已停用';
+            document.getElementById('monitorStatus').className = 'badge bg-secondary ms-2';
+            
+            if (autoMonitorInterval) {
+                clearInterval(autoMonitorInterval);
+                autoMonitorInterval = null;
+            }
+            
+            document.getElementById('nextAutoSearch').textContent = '未啟用';
+            
+            showNotification('監控已停止', '自動監控已停止', 'info');
+        }
+
+        // 檢查並執行監控
+        function checkAndExecuteMonitor() {
+            if (!autoMonitorData.enabled) return;
+            
+            const now = new Date();
+            const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            
+            // 檢查是否為設定的執行時間
+            if (autoMonitorData.times.includes(currentTime)) {
+                executeAutoMonitor();
+            }
+            
+            // 更新下次執行時間
+            updateNextSearchTime();
+        }
+
+        // 執行自動監控搜尋
+        async function executeAutoMonitor() {
+            console.log('🤖 開始執行自動監控搜尋...');
+            
+            const keywords = autoMonitorData.keywords;
+            let allResults = [];
+            let newResults = [];
+            
+            // 設定日期範圍
+            setDateRange(autoMonitorData.dateRange);
+            
+            try {
+                // 逐一搜尋每個關鍵字
+                for (const keyword of keywords) {
+                    console.log(`🔍 搜尋關鍵字: ${keyword}`);
+                    
+                    // 設定搜尋條件
+                    document.getElementById('titleQuery').value = keyword;
+                    
+                    // 執行搜尋（不顯示 UI）
+                    const results = await searchAllData('title', keyword, 1);
+                    
+                    if (results && results.length > 0) {
+                        // 檢查是否為新標案
+                        for (const result of results) {
+                            const tenderId = `${result.unit_id}_${result.job_number}_${result.date}`;
+                            if (!autoMonitorData.seenTenders.has(tenderId)) {
+                                autoMonitorData.seenTenders.add(tenderId);
+                                newResults.push({ ...result, keyword });
+                            }
+                        }
+                        allResults = allResults.concat(results);
+                    }
+                    
+                    // 避免觸發速率限制，每個關鍵字之間間隔 1 秒
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+                
+                // 更新統計
+                autoMonitorData.todaySearchCount++;
+                autoMonitorData.todayResultCount += allResults.length;
+                autoMonitorData.todayNewCount += newResults.length;
+                autoMonitorData.lastSearchTime = new Date().toISOString();
+                
+                // 記錄搜尋歷史
+                autoMonitorData.searchHistory.push({
+                    time: new Date().toISOString(),
+                    keywords: keywords.length,
+                    results: allResults.length,
+                    newResults: newResults.length
+                });
+                
+                // 只保留最近 30 筆記錄
+                if (autoMonitorData.searchHistory.length > 30) {
+                    autoMonitorData.searchHistory = autoMonitorData.searchHistory.slice(-30);
+                }
+                
+                // 儲存資料
+                const dataToSave = {
+                    ...autoMonitorData,
+                    seenTenders: Array.from(autoMonitorData.seenTenders)
+                };
+                localStorage.setItem('autoMonitorData', JSON.stringify(dataToSave));
+                
+                // 更新 UI 統計
+                updateMonitorStats();
+                
+                // 發送通知
+                if (newResults.length > 0) {
+                    notifyNewTenders(newResults);
+                }
+                
+                console.log(`✅ 監控搜尋完成: 找到 ${allResults.length} 筆結果，其中 ${newResults.length} 筆為新標案`);
+                
+            } catch (error) {
+                console.error('自動監控搜尋錯誤:', error);
+                showNotification('監控搜尋錯誤', error.message, 'error');
+            }
+        }
+
+        // 立即測試監控
+        async function testAutoMonitor() {
+            if (autoMonitorData.keywords.length === 0) {
+                showNotification('測試失敗', '請先設定監控關鍵字', 'error');
+                return;
+            }
+            
+            showNotification('開始測試', '正在執行測試搜尋...', 'info');
+            await executeAutoMonitor();
+            showNotification('測試完成', '測試搜尋已完成，請查看統計數據', 'success');
+        }
+
+        // 更新下次執行時間
+        function updateNextSearchTime() {
+            if (!autoMonitorData.enabled || autoMonitorData.times.length === 0) {
+                document.getElementById('nextAutoSearch').textContent = '未啟用';
+                return;
+            }
+            
+            const now = new Date();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            
+            let nextTime = null;
+            let minDiff = Infinity;
+            
+            for (const time of autoMonitorData.times) {
+                const [hours, minutes] = time.split(':').map(Number);
+                const timeMinutes = hours * 60 + minutes;
+                
+                let diff = timeMinutes - currentMinutes;
+                if (diff < 0) diff += 24 * 60; // 明天
+                
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    nextTime = time;
+                }
+            }
+            
+            const nextDate = new Date(now);
+            if (minDiff >= 24 * 60 - currentMinutes) {
+                nextDate.setDate(nextDate.getDate() + 1);
+            }
+            
+            const nextTimeStr = `${nextDate.getFullYear()}/${nextDate.getMonth()+1}/${nextDate.getDate()} ${nextTime}`;
+            document.getElementById('nextAutoSearch').textContent = nextTimeStr;
+        }
+
+        // 更新監控統計
+        function updateMonitorStats() {
+            document.getElementById('monitorSearchCount').textContent = autoMonitorData.todaySearchCount;
+            document.getElementById('monitorResultCount').textContent = autoMonitorData.todayResultCount;
+            document.getElementById('monitorNewCount').textContent = autoMonitorData.todayNewCount;
+            
+            if (autoMonitorData.lastSearchTime) {
+                const lastTime = new Date(autoMonitorData.lastSearchTime);
+                document.getElementById('monitorLastTime').textContent = 
+                    `${String(lastTime.getHours()).padStart(2, '0')}:${String(lastTime.getMinutes()).padStart(2, '0')}`;
+            }
+        }
+
+        // 通知新標案
+        function notifyNewTenders(newResults) {
+            const count = newResults.length;
+            const keywords = [...new Set(newResults.map(r => r.keyword))].join('、');
+            
+            // 聲音通知
+            if (autoMonitorData.notifySound) {
+                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGWi78OScTgwOUKfi8LZjHAY4kte2yn0sBSR3yPDekEAKFF607Oul');
+                audio.play().catch(e => console.log('無法播放聲音:', e));
+            }
+            
+            // 瀏覽器通知
+            if (autoMonitorData.notifyBrowser && 'Notification' in window && Notification.permission === 'granted') {
+                new Notification('🔔 發現新標案！', {
+                    body: `找到 ${count} 筆新標案\n關鍵字：${keywords}`,
+                    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><text y="20" font-size="20">📋</text></svg>',
+                    tag: 'auto-monitor',
+                    requireInteraction: true
+                });
+            }
+            
+            // 頁面通知
+            showNotification(
+                '🎉 發現新標案！',
+                `找到 ${count} 筆新標案<br>關鍵字：${keywords}<br><small>請查看搜尋結果</small>`,
+                'success'
+            );
+        }
+
+        // 顯示監控歷史
+        function showMonitorHistory() {
+            if (autoMonitorData.searchHistory.length === 0) {
+                showNotification('無歷史記錄', '尚未有監控搜尋記錄', 'info');
+                return;
+            }
+            
+            let html = '<div class="table-responsive"><table class="table table-striped table-sm"><thead><tr><th>時間</th><th>關鍵字數</th><th>找到標案</th><th>新標案</th></tr></thead><tbody>';
+            
+            autoMonitorData.searchHistory.slice().reverse().forEach(record => {
+                const time = new Date(record.time);
+                const timeStr = `${time.getMonth()+1}/${time.getDate()} ${String(time.getHours()).padStart(2,'0')}:${String(time.getMinutes()).padStart(2,'0')}`;
+                html += `<tr>
+                    <td>${timeStr}</td>
+                    <td>${record.keywords}</td>
+                    <td>${record.results}</td>
+                    <td><strong class="text-success">${record.newResults}</strong></td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table></div>';
+            
+            showNotification('監控歷史記錄', html, 'info');
+        }
+
+        // 每天凌晨重置今日統計
+        setInterval(() => {
+            const now = new Date();
+            if (now.getHours() === 0 && now.getMinutes() === 0) {
+                autoMonitorData.todaySearchCount = 0;
+                autoMonitorData.todayResultCount = 0;
+                autoMonitorData.todayNewCount = 0;
+                updateMonitorStats();
+            }
+        }, 60000);
+
+        // 頁面載入時初始化監控設定
+        document.addEventListener('DOMContentLoaded', function() {
+            loadMonitorSettings();
+        });
+
+        // ==================== 自動監控功能結束 ====================
     </script>
 </body>
 </html>

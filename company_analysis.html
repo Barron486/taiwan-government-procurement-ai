@@ -185,9 +185,55 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        const API_BASE = 'https://pcc-api.openfun.app/api';
+        const API_BASES = [
+            'https://pcc-api.openfun.app/api',
+            'https://pcc.g0v.ronny.tw/api'
+        ];
         let companyData = null;
         let geminiKey = null;
+        
+        // 多來源 API 請求函式（支援重試和容錯）
+        async function fetchFromApis(path, options = {}, timeoutMs = 10000, retriesPerBase = 2) {
+            let lastError = null;
+            const tried = [];
+            
+            for (const base of API_BASES) {
+                for (let attempt = 1; attempt <= retriesPerBase; attempt++) {
+                    const url = `${base}${path}`;
+                    tried.push(url);
+                    
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+                        
+                        const resp = await fetch(url, { 
+                            ...options, 
+                            signal: controller.signal 
+                        });
+                        
+                        clearTimeout(timeoutId);
+                        
+                        if (!resp.ok) {
+                            const errorText = await resp.text();
+                            throw new Error(`HTTP ${resp.status}: ${resp.statusText} - ${errorText}`);
+                        }
+                        
+                        return { resp, url };
+                    } catch (err) {
+                        lastError = err;
+                        console.warn(`API 請求失敗 (來源: ${base}, 嘗試 ${attempt}/${retriesPerBase}): ${err.message}`);
+                        
+                        // 如果還有重試機會，等待後重試
+                        if (attempt < retriesPerBase) {
+                            await new Promise(r => setTimeout(r, attempt * 800));
+                        }
+                    }
+                }
+            }
+            
+            const errorMessage = `所有 API 來源均失敗。最後錯誤: ${lastError?.message || '未知錯誤'}. 已嘗試來源: ${tried.join(' , ')}`;
+            throw new Error(errorMessage);
+        }
 
         // 從 URL 參數獲取公司名稱和 Gemini API Key
         function getUrlParams() {
@@ -307,37 +353,18 @@
                 console.log('去重複後總結果:', uniqueResults.length, '筆');
                 
                 if (uniqueResults.length === 0) {
-                    // 提供更詳細的診斷資訊
+                    // 簡化錯誤訊息，不再拋出異常
                     console.log('沒有找到任何結果，apiConnectionError:', apiConnectionError);
                     
-                    let diagnosticInfo = `未找到「${companyName}」的相關標案紀錄。\n\n`;
+                    let message = apiConnectionError 
+                        ? '⚠️ API 連接失敗，請檢查網路或稍後再試'
+                        : `「${companyName}」沒有找到相關標案記錄，可能該公司未曾得標政府採購案`;
                     
-                    if (apiConnectionError) {
-                        // API 連接問題 - 提供診斷和測試連結
-                        diagnosticInfo += `⚠️ 偵測到可能的 API 連接問題\n\n`;
-                        diagnosticInfo += `請先測試 API 是否正常運作：\n`;
-                        diagnosticInfo += `1. 開啟瀏覽器開發者工具 (按 F12)\n`;
-                        diagnosticInfo += `2. 查看 Console 和 Network 標籤\n`;
-                        diagnosticInfo += `3. 或使用我們的調試工具：debug_api.html\n\n`;
-                        diagnosticInfo += `如果 API 確實無法連接：\n`;
-                        diagnosticInfo += `- 可能是網路問題\n`;
-                        diagnosticInfo += `- 可能是 Cloudflare 防護（請在瀏覽器中開啟，而不是使用 curl 等工具）\n`;
-                        diagnosticInfo += `- 建議稍後再試\n`;
-                    } else {
-                        // 找不到資料 - 提供搜尋建議
-                        diagnosticInfo += `✓ API 連接正常，但未找到相關記錄\n\n`;
-                        diagnosticInfo += `已嘗試的搜尋策略：\n`;
-                        diagnosticInfo += searchStrategies.slice(0, 5).map(s => `- ${s.desc}: "${s.query}"`).join('\n');
-                        if (searchStrategies.length > 5) {
-                            diagnosticInfo += `\n... 以及其他 ${searchStrategies.length - 5} 個變體\n`;
-                        }
-                        diagnosticInfo += `\n\n建議解決方式：\n`;
-                        diagnosticInfo += `1. 在主頁面搜尋相關標案，然後點擊「相關公司」標籤\n`;
-                        diagnosticInfo += `2. 確認公司名稱是否正確\n`;
-                        diagnosticInfo += `3. 該公司可能真的沒有政府採購記錄\n`;
-                    }
+                    showMessage(message, 'warning');
                     
-                    throw new Error(diagnosticInfo);
+                    // 顯示友善的空狀態提示
+                    displayEmptyState(companyName, apiConnectionError);
+                    return [];
                 }
 
                 // 動態過濾近3年的案件（從今天往前推3年）
@@ -432,45 +459,47 @@
                 const detailedResults = await Promise.all(
                     recordsToProcess.map(async (record) => {
                         try {
-                            const detailResponse = await fetch(`${API_BASE}/tender?unit_id=${record.unit_id}&job_number=${record.job_number}`);
-                            if (detailResponse.ok) {
-                                const detailData = await detailResponse.json();
-                                const detailRecord = detailData.records?.[0] || detailData;
-                                
-                                // 智能合併詳細資料
-                                let mergedDetail = record.detail || {};
-                                
-                                // 如果 detailRecord 有 detail 屬性，合併它
-                                if (detailRecord.detail && typeof detailRecord.detail === 'object') {
-                                    mergedDetail = { ...mergedDetail, ...detailRecord.detail };
-                                }
-                                // 如果 detailRecord 本身就是 detail 對象（包含決標相關欄位）
-                                else if (detailRecord && typeof detailRecord === 'object') {
-                                    // 檢查是否包含決標相關欄位
-                                    const hasDetailFields = Object.keys(detailRecord).some(key => 
-                                        key.includes('決標') || key.includes('投標') || key.includes('採購') || key.includes('機關')
-                                    );
-                                    if (hasDetailFields) {
-                                        mergedDetail = { ...mergedDetail, ...detailRecord };
-                                    }
-                                }
-                                
-                                const mergedRecord = {
-                                    ...record,
-                                    detail: mergedDetail,
-                                    url: detailRecord.url || record.url,
-                                    pkPmsMain: detailRecord.pkPmsMain || record.pkPmsMain
-                                };
-                                
-                                console.log(`合併 ${record.job_number} 詳細資料:`, {
-                                    original_detail_keys: Object.keys(record.detail || {}),
-                                    detailRecord_keys: Object.keys(detailRecord),
-                                    detailRecord_detail_keys: detailRecord.detail ? Object.keys(detailRecord.detail) : [],
-                                    merged_detail_keys: Object.keys(mergedDetail),
-                                    has_award_amount: !!(mergedDetail['決標資料:總決標金額'] || mergedDetail['投標廠商:投標廠商1:決標金額'])
-                                });
-                                return mergedRecord;
+                            const { resp: detailResponse } = await fetchFromApis(`/tender?unit_id=${record.unit_id}&job_number=${record.job_number}`, {
+                                method: 'GET',
+                                headers: { 'Accept': 'application/json' }
+                            }, 10000, 1);
+                            
+                            const detailData = await detailResponse.json();
+                            const detailRecord = detailData.records?.[0] || detailData;
+                            
+                            // 智能合併詳細資料
+                            let mergedDetail = record.detail || {};
+                            
+                            // 如果 detailRecord 有 detail 屬性，合併它
+                            if (detailRecord.detail && typeof detailRecord.detail === 'object') {
+                                mergedDetail = { ...mergedDetail, ...detailRecord.detail };
                             }
+                            // 如果 detailRecord 本身就是 detail 對象（包含決標相關欄位）
+                            else if (detailRecord && typeof detailRecord === 'object') {
+                                // 檢查是否包含決標相關欄位
+                                const hasDetailFields = Object.keys(detailRecord).some(key => 
+                                    key.includes('決標') || key.includes('投標') || key.includes('採購') || key.includes('機關')
+                                );
+                                if (hasDetailFields) {
+                                    mergedDetail = { ...mergedDetail, ...detailRecord };
+                                }
+                            }
+                            
+                            const mergedRecord = {
+                                ...record,
+                                detail: mergedDetail,
+                                url: detailRecord.url || record.url,
+                                pkPmsMain: detailRecord.pkPmsMain || record.pkPmsMain
+                            };
+                            
+                            console.log(`合併 ${record.job_number} 詳細資料:`, {
+                                original_detail_keys: Object.keys(record.detail || {}),
+                                detailRecord_keys: Object.keys(detailRecord),
+                                detailRecord_detail_keys: detailRecord.detail ? Object.keys(detailRecord.detail) : [],
+                                merged_detail_keys: Object.keys(mergedDetail),
+                                has_award_amount: !!(mergedDetail['決標資料:總決標金額'] || mergedDetail['投標廠商:投標廠商1:決標金額'])
+                            });
+                            return mergedRecord;
                         } catch (error) {
                             console.error(`載入 ${record.job_number} 詳細資料錯誤:`, error);
                         }
@@ -1043,11 +1072,10 @@ ${JSON.stringify(processedData, null, 2)}
 
 請以繁體中文撰寫完整的競爭情報分析報告。`;
 
-                const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiKey}`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'X-goog-api-key': geminiKey
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         contents: [{
@@ -1097,19 +1125,19 @@ ${JSON.stringify(processedData, null, 2)}
 
             while (page <= maxPages && consecutiveErrors < 2) {
                 try {
-                    const url = `${API_BASE}/searchby${searchType}?query=${encodeURIComponent(query)}&page=${page}`;
-                    console.log(`搜尋第 ${page} 頁:`, url);
+                    const path = `/searchby${searchType}?query=${encodeURIComponent(query)}&page=${page}`;
+                    console.log(`搜尋第 ${page} 頁:`, path);
                     
-                    const response = await fetch(url, {
+                    // 減少重試次數，並在請求之間加入延遲以避免速率限制
+                    if (page > 1) {
+                        await new Promise(r => setTimeout(r, 500));  // 每頁間隔 500ms
+                    }
+                    const { resp: response } = await fetchFromApis(path, {
                         method: 'GET',
                         headers: {
-                            'Accept': 'application/json',
-                            'User-Agent': 'Mozilla/5.0'
-                        },
-                        mode: 'cors',
-                        credentials: 'omit',
-                        cache: 'default'
-                    });
+                            'Accept': 'application/json'
+                        }
+                    }, 10000, 1);  // 減少重試次數到 1 次
                     
                     console.log(`第 ${page} 頁回應:`, response.status, response.statusText);
                     
@@ -1197,6 +1225,48 @@ ${JSON.stringify(processedData, null, 2)}
             document.getElementById('analysisSection').style.display = 'none';
             document.getElementById('errorSection').style.display = 'block';
             document.getElementById('errorMessage').textContent = message;
+        }
+
+        // 顯示空狀態提示
+        function displayEmptyState(companyName, isApiError) {
+            document.getElementById('loadingSection').style.display = 'none';
+            document.getElementById('errorSection').style.display = 'none';
+            const analysisSection = document.getElementById('analysisSection');
+            analysisSection.style.display = 'block';
+            
+            const title = isApiError ? 'API 連接失敗' : '沒有找到資料';
+            const icon = isApiError ? 'exclamation-triangle' : 'search';
+            const color = isApiError ? 'warning' : 'info';
+            
+            analysisSection.innerHTML = `
+                <div class="text-center py-5">
+                    <i class="fas fa-${icon} fa-5x text-${color} mb-4"></i>
+                    <h3>${title}</h3>
+                    <p class="text-muted mb-4">
+                        ${isApiError 
+                            ? 'API 服務暫時無法使用，請稍後再試' 
+                            : `未找到「${companyName}」的政府採購得標記錄`}
+                    </p>
+                    ${!isApiError ? `
+                        <div class="alert alert-info mx-auto" style="max-width: 600px;">
+                            <h6><i class="fas fa-lightbulb me-2"></i>建議</h6>
+                            <ul class="text-start mb-0">
+                                <li>確認公司名稱是否正確</li>
+                                <li>該公司可能未曾得標政府採購案</li>
+                                <li>嘗試在主頁面搜尋相關標案</li>
+                            </ul>
+                        </div>
+                    ` : ''}
+                    <div class="mt-4">
+                        <button class="btn btn-primary me-2" onclick="location.reload()">
+                            <i class="fas fa-redo me-1"></i>重新載入
+                        </button>
+                        <button class="btn btn-secondary" onclick="window.close()">
+                            <i class="fas fa-times me-1"></i>關閉
+                        </button>
+                    </div>
+                </div>
+            `;
         }
 
         // 分享到 Line
