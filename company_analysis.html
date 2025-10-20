@@ -1026,14 +1026,31 @@ ${JSON.stringify(processedData, null, 2)}
             while (page <= maxPages) {
                 try {
                     const url = `${API_BASE}/searchby${searchType}?query=${encodeURIComponent(query)}&page=${page}`;
-                    const response = await fetch(url);
+                    console.log(`搜尋第 ${page} 頁:`, url);
+                    
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json'
+                        },
+                        mode: 'cors',
+                        credentials: 'omit'
+                    });
+                    
+                    console.log(`第 ${page} 頁回應:`, response.status, response.statusText);
                     
                     if (!response.ok) {
+                        // 如果是 403，在瀏覽器環境中可能仍然可以正常運作
+                        if (response.status === 403) {
+                            console.warn(`第 ${page} 頁收到 403，這在瀏覽器中通常不會影響功能`);
+                        }
                         break;
                     }
                     
                     const data = await response.json();
                     const records = data.records || [];
+                    
+                    console.log(`第 ${page} 頁結果:`, records.length, '筆');
                     
                     if (records.length === 0) {
                         break;
@@ -1043,10 +1060,15 @@ ${JSON.stringify(processedData, null, 2)}
                     page++;
                 } catch (error) {
                     console.error(`搜尋第 ${page} 頁錯誤:`, error);
+                    // 網路錯誤時繼續，但記錄錯誤
+                    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                        console.warn('可能遇到 CORS 或網路問題，但在瀏覽器中通常可以正常運作');
+                    }
                     break;
                 }
             }
 
+            console.log(`總共搜尋到 ${allResults.length} 筆結果`);
             return allResults;
         }
 

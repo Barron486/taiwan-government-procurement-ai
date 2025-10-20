@@ -233,6 +233,30 @@
             font-size: 0.95rem;
             line-height: 1.4;
         }
+        
+        .notification-actions {
+            padding-top: 10px;
+            margin-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.3);
+        }
+        
+        .notification-actions .btn {
+            background: rgba(255,255,255,0.9);
+            border: none;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .notification-actions .btn:hover {
+            background: white;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .notification-actions .btn.btn-success {
+            background: rgba(76, 175, 80, 0.9);
+            color: white;
+        }
         @media (max-width: 768px) {
             .main-container {
                 margin: 10px;
@@ -2406,8 +2430,8 @@ ${govUrl}
             
             // 錯誤訊息添加複製按鈕
             const errorActions = type === 'error' ? `
-                <div class="notification-actions mt-3 pt-2" style="border-top: 1px solid rgba(255,255,255,0.3);">
-                    <button class="btn btn-outline-secondary btn-sm copy-error-btn" onclick="copyErrorMessage()" title="複製錯誤訊息以便回報問題">
+                <div class="notification-actions">
+                    <button class="btn btn-sm copy-error-btn" onclick="copyErrorMessage()" title="複製錯誤訊息以便回報問題">
                         <i class="fas fa-copy me-1"></i>複製錯誤訊息
                     </button>
                 </div>
