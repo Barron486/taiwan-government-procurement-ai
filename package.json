@@ -1,11 +1,13 @@
 {
   "name": "taiwan-government-procurement-ai",
-  "version": "1.0.0",
-  "description": "台灣政府採購公告查詢系統 - AI 智能分析版 MVP v1.0",
+  "version": "2.0.0",
+  "description": "台灣政府採購公告查詢系統 - AI 智能分析版 v2.0",
   "main": "index.html",
   "scripts": {
     "start": "python -m http.server 8000",
-    "serve": "python -m http.server 8000"
+    "serve": "python -m http.server 8000",
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
   },
   "keywords": [
     "taiwan",
@@ -17,21 +19,23 @@
     "chatgpt",
     "search",
     "bootstrap",
-    "javascript"
+    "javascript",
+    "vercel",
+    "serverless"
   ],
   "author": "Barron",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/taiwan-government-procurement-ai.git"
+    "url": "https://github.com/Barron486/taiwan-government-procurement-ai.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/taiwan-government-procurement-ai/issues"
+    "url": "https://github.com/Barron486/taiwan-government-procurement-ai/issues"
   },
   "homepage": "https://barron486.github.io/taiwan-government-procurement-ai",
   "dependencies": {},
   "devDependencies": {},
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=18.0.0"
   }
 }

@@ -4,6 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>台灣政府採購公告查詢系統 - AI 分析版</title>
+    
+    <!-- API 配置 - 必須在其他 script 之前載入 -->
+    <script src="config.js"></script>
+    
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome Icons -->
@@ -711,16 +715,53 @@
 
     <script>
         const API_BASE = 'https://pcc-api.openfun.app/api';
-        const API_BASES = [
+        // API 配置：根據環境自動切換
+        const USE_PROXY = window.API_CONFIG && window.API_CONFIG.getApiBase();
+        const API_PROXY = USE_PROXY || null;
+        const API_BASES = USE_PROXY ? [] : [
             'https://pcc-api.openfun.app/api',
             'https://pcc.g0v.ronny.tw/api'
         ];
 
-        // 以多個 API_BASES 進行逾時+重試+備援切換
+        console.log('🔧 API 模式:', USE_PROXY ? '使用 Vercel 代理' : '直接呼叫 API');
+
+        // 以多個 API_BASES 進行逾時+重試+備援切換（或使用代理）
         async function fetchFromApis(path, options = {}, timeoutMs = 10000, retriesPerBase = 2) {
             let lastError = null;
             const tried = [];
             
+            // 如果使用代理模式
+            if (API_PROXY) {
+                const url = window.API_CONFIG.buildUrl(path, extractParams(path));
+                tried.push(url);
+                
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+                    
+                    const resp = await fetch(url, {
+                        ...options,
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    if (!resp.ok) {
+                        const errorText = await resp.text();
+                        throw new Error(`HTTP ${resp.status}: ${resp.statusText} - ${errorText}`);
+                    }
+                    
+                    console.log('✅ API 代理請求成功');
+                    return { resp, url };
+                    
+                } catch (err) {
+                    lastError = err;
+                    console.error('❌ API 代理請求失敗:', err.message);
+                    throw new Error(`API 代理失敗: ${err.message}`);
+                }
+            }
+            
+            // 直接 API 模式（本地開發）
             for (const base of API_BASES) {
                 for (let attempt = 1; attempt <= retriesPerBase; attempt++) {
                     const url = `${base}${path}`;
@@ -757,6 +798,21 @@
             
             const errorMessage = `所有 API 來源均失敗。最後錯誤: ${lastError?.message || '未知錯誤'}. 已嘗試來源: ${tried.join(' , ')}`;
             throw new Error(errorMessage);
+        }
+        
+        // 從路徑中提取參數
+        function extractParams(path) {
+            const params = {};
+            if (path.includes('?')) {
+                const [basePath, queryString] = path.split('?');
+                const urlParams = new URLSearchParams(queryString);
+                for (const [key, value] of urlParams) {
+                    params[key] = value;
+                }
+                // 返回沒有參數的路徑
+                return params;
+            }
+            return {};
         }
         let currentTimeRange = 0; // 0 = 今日
         let searchResults = [];

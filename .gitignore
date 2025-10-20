@@ -1,33 +1,40 @@
-# 系統檔案
-.DS_Store
-Thumbs.db
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
 
-# 編輯器檔案
+# Vercel
+.vercel
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# 暫存檔案
+# OS
+.DS_Store
+Thumbs.db
+
+# Cursor
+.cursor/
+
+# Test files
+test_*.html
+!test_gemini_api.html
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
 *.tmp
 *.temp
-*.log
-
-# 備份檔案
-*.bak
-*.backup
-
-# 測試檔案（保留部署測試）
-# test_*.html
-# *_test.html
-
-# API Key 檔案（如果有的話）
-.env
-config.js
-secrets.js
-
-# 其他
-node_modules/
-dist/
-build/
