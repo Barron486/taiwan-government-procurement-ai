@@ -329,21 +329,52 @@ ${searchStrategies.map(s => `- ${s.desc}: "${s.query}"`).join('\n')}
                     throw new Error(diagnosticInfo);
                 }
 
-                // 動態過濾近3年的案件
+                // 動態過濾近3年的案件（從今天往前推3年）
                 const currentDate = new Date();
                 const threeYearsAgo = new Date(currentDate);
                 threeYearsAgo.setFullYear(currentDate.getFullYear() - 3);
                 
+                console.log('當前日期:', currentDate.toLocaleDateString());
+                console.log('三年前日期:', threeYearsAgo.toLocaleDateString());
+                
                 const recentResults = uniqueResults.filter(record => {
-                    if (!record.date) return false;
+                    if (!record.date) {
+                        console.log('記錄缺少日期:', record.job_number);
+                        return false;
+                    }
                     
-                    const recordDate = new Date(
-                        parseInt(record.date.toString().substring(0, 4)),
-                        parseInt(record.date.toString().substring(4, 6)) - 1,
-                        parseInt(record.date.toString().substring(6, 8))
-                    );
-                    
-                    return recordDate >= threeYearsAgo && recordDate <= currentDate;
+                    try {
+                        const dateStr = record.date.toString();
+                        // 解析 YYYYMMDD 格式的日期
+                        const year = parseInt(dateStr.substring(0, 4));
+                        const month = parseInt(dateStr.substring(4, 6));
+                        const day = parseInt(dateStr.substring(6, 8));
+                        
+                        // 驗證日期有效性
+                        if (isNaN(year) || isNaN(month) || isNaN(day)) {
+                            console.log('無效日期格式:', dateStr, record.job_number);
+                            return false;
+                        }
+                        
+                        const recordDate = new Date(year, month - 1, day);
+                        
+                        // 檢查日期是否在近3年範圍內
+                        const isInRange = recordDate >= threeYearsAgo && recordDate <= currentDate;
+                        
+                        if (!isInRange) {
+                            console.log('記錄不在近3年範圍:', {
+                                job_number: record.job_number,
+                                date: dateStr,
+                                recordDate: recordDate.toLocaleDateString(),
+                                isInRange
+                            });
+                        }
+                        
+                        return isInRange;
+                    } catch (error) {
+                        console.error('日期解析錯誤:', error, record.date, record.job_number);
+                        return false;
+                    }
                 });
                 
                 console.log('近3年案件數量:', recentResults.length, '筆');
@@ -499,23 +530,34 @@ ${searchStrategies.map(s => `- ${s.desc}: "${s.query}"`).join('\n')}
             const threeYearsAgo = new Date(currentDate);
             threeYearsAgo.setFullYear(currentYear - 3);
             
+            console.log('年度統計：當前日期', currentDate.toLocaleDateString());
+            console.log('年度統計：三年前日期', threeYearsAgo.toLocaleDateString());
+            
             const yearlyStats = {};
             const allYears = new Set();
             
             // 先收集所有有資料的年份
             results.forEach(record => {
                 if (record.date) {
-                    const year = record.date.toString().substring(0, 4);
+                    const dateStr = record.date.toString();
+                    const year = dateStr.substring(0, 4);
                     const yearNum = parseInt(year);
-                    allYears.add(yearNum);
+                    
+                    // 驗證年份有效性
+                    if (!isNaN(yearNum) && yearNum >= 2000 && yearNum <= currentYear) {
+                        allYears.add(yearNum);
+                    }
                 }
             });
             
-            // 找出近3年範圍內的所有年份
+            // 找出近3年範圍內的所有年份（從三年前的年份到當前年份）
+            const threeYearsAgoYear = threeYearsAgo.getFullYear();
             const recentYears = Array.from(allYears).filter(year => {
-                const recordDate = new Date(year, 0, 1);
-                return recordDate >= threeYearsAgo && recordDate <= currentDate;
+                return year >= threeYearsAgoYear && year <= currentYear;
             }).sort((a, b) => b - a);
+            
+            console.log('所有年份:', Array.from(allYears).sort((a, b) => b - a));
+            console.log('近3年年份:', recentYears);
             
             console.log('近3年範圍內找到的年份:', recentYears);
             
@@ -710,6 +752,24 @@ ${searchStrategies.map(s => `- ${s.desc}: "${s.query}"`).join('\n')}
                                     <p class="card-text text-muted mb-1">
                                         <i class="fas fa-building me-1"></i>${record.unit_name || '未知機關'}
                                     </p>
+                                    <div class="mt-2">
+                                        <div class="btn-group" role="group">
+                                            <button class="btn btn-outline-success btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="分享標案">
+                                                <i class="fas fa-share-alt me-1"></i>分享
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item" href="javascript:void(0)" onclick="shareToLine('${(brief.title || '無標題').replace(/'/g, "\\'")}', '${(record.unit_name || '未知機關').replace(/'/g, "\\'")}', '${govUrl}')">
+                                                    <i class="fab fa-line text-success me-2"></i>分享到 Line
+                                                </a></li>
+                                                <li><a class="dropdown-item" href="javascript:void(0)" onclick="shareToGmail('${(brief.title || '無標題').replace(/'/g, "\\'")}', '${(record.unit_name || '未知機關').replace(/'/g, "\\'")}', '${jobNumber}', '${govUrl}')">
+                                                    <i class="fas fa-envelope text-danger me-2"></i>分享到 Gmail
+                                                </a></li>
+                                                <li><a class="dropdown-item" href="javascript:void(0)" onclick="copyLink('${govUrl}', '${(brief.title || '無標題').replace(/'/g, "\\'")}')">
+                                                    <i class="fas fa-copy text-primary me-2"></i>複製連結
+                                                </a></li>
+                                            </ul>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="col-md-4 text-end">
                                     <span class="badge ${brief.type && brief.type.includes('決標') ? 'bg-danger' : 'bg-primary'}">${brief.type || '未知類型'}</span>
@@ -1002,6 +1062,62 @@ ${JSON.stringify(processedData, null, 2)}
             document.getElementById('analysisSection').style.display = 'none';
             document.getElementById('errorSection').style.display = 'block';
             document.getElementById('errorMessage').textContent = message;
+        }
+
+        // 分享到 Line
+        function shareToLine(title, unitName, govUrl) {
+            const message = `📋 ${title}\n🏢 機關：${unitName}\n🔗 連結：${govUrl}`;
+            const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(message)}`;
+            window.open(lineUrl, '_blank');
+            console.log('已開啟 Line 分享');
+        }
+
+        // 分享到 Gmail
+        function shareToGmail(title, unitName, jobNumber, govUrl) {
+            const subject = `政府採購標案：${title}`;
+            const body = `
+政府採購標案資訊
+
+標案名稱：${title}
+機關名稱：${unitName}
+案號：${jobNumber}
+
+詳細資料連結：
+${govUrl}
+
+---
+此郵件由政府採購標案查詢系統自動產生
+            `.trim();
+            
+            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            window.open(gmailUrl, '_blank');
+            console.log('已開啟 Gmail');
+        }
+
+        // 複製連結
+        async function copyLink(govUrl, title) {
+            try {
+                await navigator.clipboard.writeText(govUrl);
+                alert(`已複製「${title}」的連結到剪貼簿`);
+            } catch (error) {
+                // 備用方案：使用傳統的複製方法
+                const textArea = document.createElement('textarea');
+                textArea.value = govUrl;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    document.execCommand('copy');
+                    alert(`已複製「${title}」的連結到剪貼簿`);
+                } catch (err) {
+                    alert('複製失敗，請手動複製連結');
+                }
+                
+                document.body.removeChild(textArea);
+            }
         }
 
         // 顯示訊息

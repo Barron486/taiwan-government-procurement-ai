@@ -1546,6 +1546,22 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                     <button class="btn btn-outline-info btn-sm" onclick="startChat('${brief.title || '無標題'}', '${record.unit_name || '未知機關'}', '${brief.type || '未知類型'}')">
                         <i class="fas fa-comments me-1"></i>AI 對話
                     </button>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-outline-success btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="分享標案">
+                            <i class="fas fa-share-alt me-1"></i>分享
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="shareToLine('${(brief.title || '無標題').replace(/'/g, "\\'")}', '${(record.unit_name || '未知機關').replace(/'/g, "\\'")}', '${buildGovUrl(record)}')">
+                                <i class="fab fa-line text-success me-2"></i>分享到 Line
+                            </a></li>
+                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="shareToGmail('${(brief.title || '無標題').replace(/'/g, "\\'")}', '${(record.unit_name || '未知機關').replace(/'/g, "\\'")}', '${record.job_number || '未知'}', '${buildGovUrl(record)}')">
+                                <i class="fas fa-envelope text-danger me-2"></i>分享到 Gmail
+                            </a></li>
+                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="copyLink('${buildGovUrl(record)}', '${(brief.title || '無標題').replace(/'/g, "\\'")}')">
+                                <i class="fas fa-copy text-primary me-2"></i>複製連結
+                            </a></li>
+                        </ul>
+                    </div>
                 </div>
             `;
             
@@ -1847,18 +1863,32 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                     // 儲存記錄資料供分頁使用
                     window.tenderRecords = records;
                     
-                    // 移除舊的 modal
+                    // 移除舊的 modal（包括 backdrop）
                     const oldModal = document.getElementById('detailModal');
                     if (oldModal) {
+                        const bsModal = bootstrap.Modal.getInstance(oldModal);
+                        if (bsModal) {
+                            bsModal.dispose();
+                        }
                         oldModal.remove();
                     }
+                    // 移除可能殘留的 backdrop
+                    document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
                     
                     // 添加新的 modal
                     document.body.insertAdjacentHTML('beforeend', detailHtml);
                     
                     // 顯示 modal
-                    const modal = new bootstrap.Modal(document.getElementById('detailModal'));
+                    const modalElement = document.getElementById('detailModal');
+                    const modal = new bootstrap.Modal(modalElement, {
+                        backdrop: true,
+                        keyboard: true,
+                        focus: true
+                    });
                     modal.show();
+                    
+                    // 清除載入訊息
+                    showMessage('詳細資料載入成功', 'success');
                     
                     // 成功載入，跳出重試迴圈
                     return;
@@ -1899,6 +1929,62 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
             errorMessage += `<br><small class="text-muted">已嘗試 ${maxRetries} 次重試</small>`;
             
             showNotification('載入詳細資料失敗', errorMessage, 'error');
+        }
+
+        // 分享到 Line
+        function shareToLine(title, unitName, govUrl) {
+            const message = `📋 ${title}\n🏢 機關：${unitName}\n🔗 連結：${govUrl}`;
+            const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(message)}`;
+            window.open(lineUrl, '_blank');
+            showNotification('已開啟 Line 分享', '請選擇要分享的對象', 'success');
+        }
+
+        // 分享到 Gmail
+        function shareToGmail(title, unitName, jobNumber, govUrl) {
+            const subject = `政府採購標案：${title}`;
+            const body = `
+政府採購標案資訊
+
+標案名稱：${title}
+機關名稱：${unitName}
+案號：${jobNumber}
+
+詳細資料連結：
+${govUrl}
+
+---
+此郵件由政府採購標案查詢系統自動產生
+            `.trim();
+            
+            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            window.open(gmailUrl, '_blank');
+            showNotification('已開啟 Gmail', '請填寫收件人', 'success');
+        }
+
+        // 複製連結
+        async function copyLink(govUrl, title) {
+            try {
+                await navigator.clipboard.writeText(govUrl);
+                showNotification('連結已複製', `已複製「${title}」的連結到剪貼簿`, 'success');
+            } catch (error) {
+                // 備用方案：使用傳統的複製方法
+                const textArea = document.createElement('textarea');
+                textArea.value = govUrl;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    document.execCommand('copy');
+                    showNotification('連結已複製', `已複製「${title}」的連結到剪貼簿`, 'success');
+                } catch (err) {
+                    showNotification('複製失敗', '請手動複製連結', 'error');
+                }
+                
+                document.body.removeChild(textArea);
+            }
         }
 
         // 加入 Google Calendar
@@ -2133,8 +2219,13 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
             window.allSearchResults = [];
             window.isGeminiSearch = false;
             
+            // 確保搜尋按鈕和輸入框可用
+            document.querySelectorAll('input, button').forEach(element => {
+                element.disabled = false;
+            });
+            
             // 顯示清除訊息
-            showNotification('清除完成', '搜尋結果已清除', 'success');
+            showNotification('清除完成', '搜尋結果已清除，可以進行新的搜尋', 'success');
         }
 
         // 顯示 Gemini API Key 幫助
