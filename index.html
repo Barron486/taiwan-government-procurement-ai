@@ -1907,6 +1907,7 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                     // 移除舊的 modal（包括 backdrop）
                     const oldModal = document.getElementById('detailModal');
                     if (oldModal) {
+                        console.log('移除舊的 modal');
                         const bsModal = bootstrap.Modal.getInstance(oldModal);
                         if (bsModal) {
                             bsModal.dispose();
@@ -1914,22 +1915,57 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                         oldModal.remove();
                     }
                     // 移除可能殘留的 backdrop
-                    document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+                    document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+                        console.log('移除殘留的 backdrop');
+                        backdrop.remove();
+                    });
+                    
+                    // 確保 body 沒有 modal-open class
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = '';
+                    document.body.style.paddingRight = '';
                     
                     // 添加新的 modal
+                    console.log('添加新的 modal');
                     document.body.insertAdjacentHTML('beforeend', detailHtml);
                     
                     // 顯示 modal
                     const modalElement = document.getElementById('detailModal');
-                    const modal = new bootstrap.Modal(modalElement, {
-                        backdrop: true,
-                        keyboard: true,
-                        focus: true
-                    });
-                    modal.show();
+                    if (!modalElement) {
+                        throw new Error('無法創建 modal 元素');
+                    }
+                    
+                    console.log('初始化 Bootstrap Modal');
+                    try {
+                        const modal = new bootstrap.Modal(modalElement, {
+                            backdrop: true,
+                            keyboard: true,
+                            focus: true
+                        });
+                        
+                        console.log('顯示 modal');
+                        modal.show();
+                        
+                        // 監聽 modal 顯示事件
+                        modalElement.addEventListener('shown.bs.modal', function () {
+                            console.log('Modal 已成功顯示');
+                        });
+                        
+                        // 監聽 modal 隱藏事件
+                        modalElement.addEventListener('hidden.bs.modal', function () {
+                            console.log('Modal 已關閉');
+                            // 清理
+                            modalElement.remove();
+                            document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+                        });
+                        
+                    } catch (modalError) {
+                        console.error('Modal 初始化錯誤:', modalError);
+                        throw new Error(`Modal 初始化失敗: ${modalError.message}`);
+                    }
                     
                     // 清除載入訊息
-                    showMessage('詳細資料載入成功', 'success');
+                    console.log('詳細資料載入完成');
                     
                     // 成功載入，跳出重試迴圈
                     return;

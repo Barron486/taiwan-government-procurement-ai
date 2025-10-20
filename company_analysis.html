@@ -222,29 +222,13 @@
             }
         }
 
-        // 測試API連接
-        async function testAPIConnection() {
-            try {
-                const response = await fetch(`${API_BASE}/searchbycompanyname?query=測試&page=1`);
-                return response.ok;
-            } catch (error) {
-                console.error('API連接測試失敗:', error);
-                return false;
-            }
-        }
-
         // 載入公司資料
         async function loadCompanyData(companyName) {
             try {
                 showMessage('正在搜尋公司得標資料...', 'info');
                 
-                // 先測試API連接
-                const isAPIConnected = await testAPIConnection();
-                if (!isAPIConnected) {
-                    throw new Error('API服務暫時無法使用，請稍後再試。');
-                }
-                
                 let results = [];
+                let apiConnectionError = false;
                 
                 // 嘗試多種搜尋方式
                 const searchStrategies = [
@@ -283,11 +267,14 @@
                             
                             if (strategyResults && strategyResults.length > 0) {
                                 results = results.concat(strategyResults);
+                                // 如果成功取得結果，表示 API 連接正常
+                                apiConnectionError = false;
                             }
                         } catch (error) {
                             console.warn(`${strategy.desc} 搜尋失敗:`, error);
-                            // 如果API完全無法連接，提供更詳細的錯誤訊息
+                            // 記錄連接錯誤，但不立即中止
                             if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                                apiConnectionError = true;
                                 console.error('API連接失敗，可能是網路問題或API服務暫時無法使用');
                             }
                         }
@@ -309,23 +296,30 @@
                 
                 if (uniqueResults.length === 0) {
                     // 提供更詳細的診斷資訊
-                    const diagnosticInfo = `
-未找到 ${companyName} 的相關標案紀錄。
-
-已嘗試的搜尋策略：
-${searchStrategies.map(s => `- ${s.desc}: "${s.query}"`).join('\n')}
-
-可能的原因：
-1. API服務暫時無法使用
-2. 公司名稱在政府採購網中的記錄方式不同
-3. 該公司可能沒有政府採購相關記錄
-4. 網路連接問題
-
-建議：
-1. 檢查網路連接
-2. 嘗試使用不同的公司名稱變體
-3. 稍後再試
-                    `;
+                    let diagnosticInfo = `未找到「${companyName}」的相關標案紀錄。\n\n`;
+                    
+                    if (apiConnectionError) {
+                        diagnosticInfo += `⚠️ 偵測到 API 連接問題\n\n`;
+                        diagnosticInfo += `可能原因：\n`;
+                        diagnosticInfo += `1. 網路連接不穩定\n`;
+                        diagnosticInfo += `2. API 服務暫時無法使用\n`;
+                        diagnosticInfo += `3. 瀏覽器阻擋了跨域請求\n\n`;
+                        diagnosticInfo += `建議：\n`;
+                        diagnosticInfo += `1. 檢查網路連接\n`;
+                        diagnosticInfo += `2. 嘗試重新整理頁面\n`;
+                        diagnosticInfo += `3. 稍後再試\n`;
+                    } else {
+                        diagnosticInfo += `已嘗試的搜尋策略：\n`;
+                        diagnosticInfo += searchStrategies.map(s => `- ${s.desc}: "${s.query}"`).join('\n');
+                        diagnosticInfo += `\n\n可能原因：\n`;
+                        diagnosticInfo += `1. 公司名稱在政府採購網中的記錄方式不同\n`;
+                        diagnosticInfo += `2. 該公司可能沒有近期的政府採購相關記錄\n\n`;
+                        diagnosticInfo += `建議：\n`;
+                        diagnosticInfo += `1. 確認公司名稱拼寫正確\n`;
+                        diagnosticInfo += `2. 嘗試使用公司名稱的簡化版本（如「龐德」而非「龐德生技有限公司」）\n`;
+                        diagnosticInfo += `3. 在主頁面使用標案名稱搜尋，然後點擊相關公司標籤\n`;
+                    }
+                    
                     throw new Error(diagnosticInfo);
                 }
 
