@@ -823,16 +823,17 @@
             console.log('detail.url:', detail.url);
             console.log('detail.pkPmsMain:', detail.pkPmsMain);
             
-            // 1. 優先使用 detail 中的 url 欄位（如果是政府採購網連結）
-            if (detail.url && detail.url.startsWith('https://web.pcc.gov.tw')) {
-                console.log('使用 detail.url:', detail.url);
-                return detail.url;
-            }
-            
-            // 2. 檢查 detail 中的 pkPmsMain 欄位
+            // 1. 優先使用 detail 中的 pkPmsMain（政府採購網原始資料）
             if (detail.pkPmsMain) {
                 const govUrl = `https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetail?pkPmsMain=${detail.pkPmsMain}`;
                 console.log('使用 pkPmsMain 構建連結:', govUrl);
+                return govUrl;
+            }
+            
+            // 2. 如果有 pkPmsMain 欄位（可能在根層級）
+            if (record.pkPmsMain) {
+                const govUrl = `https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetail?pkPmsMain=${record.pkPmsMain}`;
+                console.log('使用 record.pkPmsMain 構建連結:', govUrl);
                 return govUrl;
             }
             
@@ -865,13 +866,19 @@
                 }
             }
             
-            // 5. 使用 record 的 url 欄位
+            // 5. 使用 detail 中的 url 欄位（如果是政府採購網連結）
+            if (detail.url && detail.url.startsWith('https://web.pcc.gov.tw')) {
+                console.log('使用 detail.url:', detail.url);
+                return detail.url;
+            }
+            
+            // 6. 使用 record 的 url 欄位
             if (record.url && record.url.startsWith('https://web.pcc.gov.tw')) {
                 console.log('使用 record.url:', record.url);
                 return record.url;
             }
             
-            // 6. 備用方案：構建 pcc.g0v.ronny.tw 的 tender.html
+            // 7. 備用方案：構建 pcc.g0v.ronny.tw 的 tender.html
             if (record.job_number && record.unit_id && record.date) {
                 const dateStr = record.date.toString();
                 const filename = record.filename || 'unknown';
@@ -889,7 +896,7 @@
                 }
             }
             
-            // 7. 最後備用方案
+            // 8. 最後備用方案
             console.log('無法構建連結，返回 #');
             return '#';
         }
@@ -1196,7 +1203,8 @@ ${JSON.stringify(processedData, null, 2)}
             document.getElementById('loadingSection').style.display = 'none';
             document.getElementById('analysisSection').style.display = 'none';
             document.getElementById('errorSection').style.display = 'block';
-            document.getElementById('errorMessage').textContent = message;
+            // 使用 innerHTML 以支援 HTML 標籤（例如換行）
+            document.getElementById('errorMessage').innerHTML = message.replace(/\n/g, '<br>');
         }
 
         // 分享到 Line
