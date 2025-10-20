@@ -220,7 +220,17 @@
                 await performGeminiAnalysis(companyName);
             } catch (error) {
                 console.error('初始化錯誤:', error);
-                showError(`初始化失敗：${error.message}`);
+                // 提供更友善的錯誤訊息和重試選項
+                showError(`初始化失敗：${error.message}
+                
+                <div class="mt-3">
+                    <button class="btn btn-primary" onclick="location.reload()">
+                        <i class="fas fa-redo me-1"></i>重新載入
+                    </button>
+                    <button class="btn btn-secondary ms-2" onclick="window.close()">
+                        <i class="fas fa-times me-1"></i>關閉
+                    </button>
+                </div>`);
             }
         }
 
@@ -298,28 +308,33 @@
                 
                 if (uniqueResults.length === 0) {
                     // 提供更詳細的診斷資訊
+                    console.log('沒有找到任何結果，apiConnectionError:', apiConnectionError);
+                    
                     let diagnosticInfo = `未找到「${companyName}」的相關標案紀錄。\n\n`;
                     
                     if (apiConnectionError) {
-                        diagnosticInfo += `⚠️ 偵測到 API 連接問題\n\n`;
-                        diagnosticInfo += `可能原因：\n`;
-                        diagnosticInfo += `1. 網路連接不穩定\n`;
-                        diagnosticInfo += `2. API 服務暫時無法使用\n`;
-                        diagnosticInfo += `3. 瀏覽器阻擋了跨域請求\n\n`;
-                        diagnosticInfo += `建議：\n`;
-                        diagnosticInfo += `1. 檢查網路連接\n`;
-                        diagnosticInfo += `2. 嘗試重新整理頁面\n`;
-                        diagnosticInfo += `3. 稍後再試\n`;
+                        // API 連接問題 - 提供診斷和測試連結
+                        diagnosticInfo += `⚠️ 偵測到可能的 API 連接問題\n\n`;
+                        diagnosticInfo += `請先測試 API 是否正常運作：\n`;
+                        diagnosticInfo += `1. 開啟瀏覽器開發者工具 (按 F12)\n`;
+                        diagnosticInfo += `2. 查看 Console 和 Network 標籤\n`;
+                        diagnosticInfo += `3. 或使用我們的調試工具：debug_api.html\n\n`;
+                        diagnosticInfo += `如果 API 確實無法連接：\n`;
+                        diagnosticInfo += `- 可能是網路問題\n`;
+                        diagnosticInfo += `- 可能是 Cloudflare 防護（請在瀏覽器中開啟，而不是使用 curl 等工具）\n`;
+                        diagnosticInfo += `- 建議稍後再試\n`;
                     } else {
+                        // 找不到資料 - 提供搜尋建議
+                        diagnosticInfo += `✓ API 連接正常，但未找到相關記錄\n\n`;
                         diagnosticInfo += `已嘗試的搜尋策略：\n`;
-                        diagnosticInfo += searchStrategies.map(s => `- ${s.desc}: "${s.query}"`).join('\n');
-                        diagnosticInfo += `\n\n可能原因：\n`;
-                        diagnosticInfo += `1. 公司名稱在政府採購網中的記錄方式不同\n`;
-                        diagnosticInfo += `2. 該公司可能沒有近期的政府採購相關記錄\n\n`;
-                        diagnosticInfo += `建議：\n`;
-                        diagnosticInfo += `1. 確認公司名稱拼寫正確\n`;
-                        diagnosticInfo += `2. 嘗試使用公司名稱的簡化版本（如「龐德」而非「龐德生技有限公司」）\n`;
-                        diagnosticInfo += `3. 在主頁面使用標案名稱搜尋，然後點擊相關公司標籤\n`;
+                        diagnosticInfo += searchStrategies.slice(0, 5).map(s => `- ${s.desc}: "${s.query}"`).join('\n');
+                        if (searchStrategies.length > 5) {
+                            diagnosticInfo += `\n... 以及其他 ${searchStrategies.length - 5} 個變體\n`;
+                        }
+                        diagnosticInfo += `\n\n建議解決方式：\n`;
+                        diagnosticInfo += `1. 在主頁面搜尋相關標案，然後點擊「相關公司」標籤\n`;
+                        diagnosticInfo += `2. 確認公司名稱是否正確\n`;
+                        diagnosticInfo += `3. 該公司可能真的沒有政府採購記錄\n`;
                     }
                     
                     throw new Error(diagnosticInfo);
@@ -1078,8 +1093,9 @@ ${JSON.stringify(processedData, null, 2)}
             let allResults = [];
             let page = 1;
             const maxPages = 5; // 限制最多搜尋5頁
+            let consecutiveErrors = 0;
 
-            while (page <= maxPages) {
+            while (page <= maxPages && consecutiveErrors < 2) {
                 try {
                     const url = `${API_BASE}/searchby${searchType}?query=${encodeURIComponent(query)}&page=${page}`;
                     console.log(`搜尋第 ${page} 頁:`, url);
@@ -1087,10 +1103,12 @@ ${JSON.stringify(processedData, null, 2)}
                     const response = await fetch(url, {
                         method: 'GET',
                         headers: {
-                            'Accept': 'application/json'
+                            'Accept': 'application/json',
+                            'User-Agent': 'Mozilla/5.0'
                         },
                         mode: 'cors',
-                        credentials: 'omit'
+                        credentials: 'omit',
+                        cache: 'default'
                     });
                     
                     console.log(`第 ${page} 頁回應:`, response.status, response.statusText);
@@ -1098,10 +1116,34 @@ ${JSON.stringify(processedData, null, 2)}
                     if (!response.ok) {
                         // 如果是 403，在瀏覽器環境中可能仍然可以正常運作
                         if (response.status === 403) {
-                            console.warn(`第 ${page} 頁收到 403，這在瀏覽器中通常不會影響功能`);
+                            console.warn(`第 ${page} 頁收到 403，但在瀏覽器中這通常是正常的`);
+                            // 403 通常只發生在非瀏覽器環境，所以這裡我們記錄但不拋出錯誤
+                            consecutiveErrors++;
+                            
+                            // 如果是第一頁就 403，可能真的有問題
+                            if (page === 1) {
+                                console.error('第一頁就收到 403，可能確實有 API 連接問題');
+                                throw new Error('API 連接被拒絕（403）');
+                            }
+                        } else if (response.status === 404) {
+                            console.log(`第 ${page} 頁沒有更多資料`);
+                            break;
+                        } else {
+                            console.warn(`第 ${page} 頁回應異常: ${response.status}`);
+                            consecutiveErrors++;
                         }
-                        break;
+                        
+                        // 如果連續錯誤，停止搜尋
+                        if (consecutiveErrors >= 2) {
+                            console.warn('連續錯誤太多，停止搜尋');
+                            break;
+                        }
+                        page++;
+                        continue;
                     }
+                    
+                    // 重置錯誤計數
+                    consecutiveErrors = 0;
                     
                     const data = await response.json();
                     const records = data.records || [];
@@ -1109,22 +1151,43 @@ ${JSON.stringify(processedData, null, 2)}
                     console.log(`第 ${page} 頁結果:`, records.length, '筆');
                     
                     if (records.length === 0) {
+                        console.log('沒有更多結果，停止搜尋');
                         break;
                     }
                     
                     allResults = allResults.concat(records);
                     page++;
+                    
                 } catch (error) {
                     console.error(`搜尋第 ${page} 頁錯誤:`, error);
-                    // 網路錯誤時繼續，但記錄錯誤
+                    consecutiveErrors++;
+                    
+                    // 網路錯誤的詳細診斷
                     if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-                        console.warn('可能遇到 CORS 或網路問題，但在瀏覽器中通常可以正常運作');
+                        console.error('網路請求失敗 - 可能是 CORS、網路問題或 API 服務異常');
+                        
+                        // 如果是第一頁就失敗，這是嚴重問題
+                        if (page === 1) {
+                            throw new Error('無法連接到 API 服務，請檢查網路連接或稍後再試');
+                        }
                     }
-                    break;
+                    
+                    // 如果已經有一些結果，就返回這些結果
+                    if (allResults.length > 0) {
+                        console.log(`雖然遇到錯誤，但已取得 ${allResults.length} 筆結果`);
+                        break;
+                    }
+                    
+                    // 如果沒有任何結果且連續錯誤，拋出錯誤
+                    if (consecutiveErrors >= 2) {
+                        throw error;
+                    }
+                    
+                    page++;
                 }
             }
 
-            console.log(`總共搜尋到 ${allResults.length} 筆結果`);
+            console.log(`總共搜尋到 ${allResults.length} 筆結果（搜尋了 ${page-1} 頁）`);
             return allResults;
         }
 
