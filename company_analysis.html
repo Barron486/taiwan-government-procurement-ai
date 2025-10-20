@@ -187,6 +187,90 @@
         let companyData = null;
         let geminiKey = null;
 
+        // 解析文字中的數字，若有多組數字取最大值（較能代表金額欄位）
+        function parseNumberFromText(value) {
+            if (value === undefined || value === null) return null;
+            const text = value.toString();
+            const matches = text.match(/[\d,]+(?:\.\d+)?/g);
+            if (!matches || matches.length === 0) return null;
+            const numbers = matches.map(m => {
+                try {
+                    return parseFloat(m.replace(/,/g, ''));
+                } catch (_) {
+                    return NaN;
+                }
+            }).filter(n => !Number.isNaN(n));
+            if (numbers.length === 0) return null;
+            // 以最大數值作為金額（避免區間或多數字描述時抓到較小值）
+            return Math.max(...numbers);
+        }
+
+        function formatCurrency(amountNumber) {
+            if (amountNumber === null || amountNumber === undefined || Number.isNaN(amountNumber)) return '金額未知';
+            // 以整數顯示（政府採購金額多為整數）
+            const rounded = Math.round(amountNumber);
+            return `${rounded.toLocaleString()} 元`;
+        }
+
+        // 自 detail 擷取「決標金額」，不含預算金額。找不到時回傳 numericAmount=null。
+        function extractWinningAmount(detail) {
+            const result = { numericAmount: null, sourceKey: null };
+            if (!detail || typeof detail !== 'object') return result;
+
+            // 1) 依優先順序檢查常見欄位
+            const priorityKeys = [
+                '決標資料:總決標金額',
+                '決標資料:決標金額',
+                '採購資料:決標金額'
+            ];
+            for (const key of priorityKeys) {
+                if (detail[key]) {
+                    const n = parseNumberFromText(detail[key]);
+                    if (n !== null) {
+                        return { numericAmount: n, sourceKey: key };
+                    }
+                }
+            }
+
+            // 2) 任何投標廠商的決標金額（投標廠商:投標廠商X:決標金額）
+            const vendorKeys = Object.keys(detail)
+                .filter(k => k.includes('投標廠商') && k.endsWith('決標金額'))
+                // 盡量讓「投標廠商1」優先
+                .sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+            for (const key of vendorKeys) {
+                const n = parseNumberFromText(detail[key]);
+                if (n !== null) return { numericAmount: n, sourceKey: key };
+            }
+
+            // 3) 其他可能的鍵名（包含 任意鍵 含「總決標金額／決標金額／得標金額」）
+            for (const key of Object.keys(detail)) {
+                if (key.includes('總決標金額') || key.includes('決標金額') || key.includes('得標金額')) {
+                    const n = parseNumberFromText(detail[key]);
+                    if (n !== null) return { numericAmount: n, sourceKey: key };
+                }
+            }
+
+            return result;
+        }
+
+        // 自 detail 擷取「預算金額」，僅供列表顯示備援，不納入「總決標金額」統計
+        function extractBudgetAmount(detail) {
+            if (!detail || typeof detail !== 'object') return { numericAmount: null, sourceKey: null };
+            const budgetPrimary = '採購資料:預算金額';
+            if (detail[budgetPrimary]) {
+                const n = parseNumberFromText(detail[budgetPrimary]);
+                if (n !== null) return { numericAmount: n, sourceKey: budgetPrimary };
+            }
+            // 掃描所有包含「預算金額」的欄位
+            for (const key of Object.keys(detail)) {
+                if (key.includes('預算金額')) {
+                    const n = parseNumberFromText(detail[key]);
+                    if (n !== null) return { numericAmount: n, sourceKey: key };
+                }
+            }
+            return { numericAmount: null, sourceKey: null };
+        }
+
         // 從 URL 參數獲取公司名稱和 Gemini API Key
         function getUrlParams() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -440,20 +524,9 @@ ${searchStrategies.map(s => `- ${s.desc}: "${s.query}"`).join('\n')}
                 const year = record.date ? record.date.toString().substring(0, 4) : '未知';
                 years.add(year);
                 
-                // 優先使用決標資料:總決標金額
-                let amount = '0';
-                if (record.detail?.['決標資料:總決標金額']) {
-                    amount = record.detail['決標資料:總決標金額'];
-                } else if (record.detail?.['投標廠商:投標廠商1:決標金額']) {
-                    amount = record.detail['投標廠商:投標廠商1:決標金額'];
-                } else if (record.detail?.['採購資料:預算金額']) {
-                    amount = record.detail['採購資料:預算金額'];
-                }
-                
-                const amountMatch = amount.toString().match(/[\d,]+/);
-                if (amountMatch) {
-                    const numericAmount = parseInt(amountMatch[0].replace(/,/g, ''));
-                    totalAmount += numericAmount;
+                const { numericAmount } = extractWinningAmount(record.detail || {});
+                if (numericAmount !== null) {
+                    totalAmount += Math.round(numericAmount);
                     validAmountCount++;
                 }
             });
@@ -509,27 +582,14 @@ ${searchStrategies.map(s => `- ${s.desc}: "${s.query}"`).join('\n')}
                     return;
                 }
                 
-                // 優先使用決標金額，備用預算金額
-                let amount = '0';
-                if (record.detail?.['決標資料:總決標金額']) {
-                    amount = record.detail['決標資料:總決標金額'];
-                } else if (record.detail?.['投標廠商:投標廠商1:決標金額']) {
-                    amount = record.detail['投標廠商:投標廠商1:決標金額'];
-                } else if (record.detail?.['採購資料:決標金額']) {
-                    amount = record.detail['採購資料:決標金額'];
-                } else if (record.detail?.['採購資料:預算金額']) {
-                    amount = record.detail['採購資料:預算金額'];
-                }
-                
+                // 僅統計「決標金額」，不再以預算金額作為統計備援
+                const { numericAmount } = extractWinningAmount(record.detail || {});
                 if (!yearlyStats[year]) {
                     yearlyStats[year] = { count: 0, totalAmount: 0 };
                 }
                 yearlyStats[year].count++;
-                
-                const amountMatch = amount.toString().match(/[\d,]+/);
-                if (amountMatch) {
-                    const numericAmount = parseInt(amountMatch[0].replace(/,/g, ''));
-                    yearlyStats[year].totalAmount += numericAmount;
+                if (numericAmount !== null) {
+                    yearlyStats[year].totalAmount += Math.round(numericAmount);
                 }
             });
 
@@ -615,49 +675,22 @@ ${searchStrategies.map(s => `- ${s.desc}: "${s.query}"`).join('\n')}
                 console.log(`標案 ${index + 1} 連結:`, govUrl);
                 console.log(`標案 ${index + 1} 完整record:`, record);
                 
-                // 獲取金額（優先使用決標金額，備用預算金額）
+                // 金額顯示：優先「決標金額」，若不存在則以「預算金額」標示為備援顯示
                 let tenderAmount = '金額未知';
                 let amountType = '';
-                
-                // 1. 優先使用決標資料:總決標金額
-                if (detail['決標資料:總決標金額']) {
-                    tenderAmount = detail['決標資料:總決標金額'];
+                const winInfo = extractWinningAmount(detail);
+                if (winInfo.numericAmount !== null) {
+                    tenderAmount = formatCurrency(winInfo.numericAmount);
                     amountType = '決標金額';
-                    console.log(`找到決標金額: 決標資料:總決標金額 = ${tenderAmount}`);
-                }
-                // 2. 備用：使用投標廠商的決標金額
-                else if (detail['投標廠商:投標廠商1:決標金額']) {
-                    tenderAmount = detail['投標廠商:投標廠商1:決標金額'];
-                    amountType = '決標金額';
-                    console.log(`找到決標金額: 投標廠商:投標廠商1:決標金額 = ${tenderAmount}`);
-                }
-                // 3. 備用：使用採購資料的決標金額
-                else if (detail['採購資料:決標金額']) {
-                    tenderAmount = detail['採購資料:決標金額'];
-                    amountType = '決標金額';
-                    console.log(`找到決標金額: 採購資料:決標金額 = ${tenderAmount}`);
-                }
-                // 4. 備用：使用預算金額
-                else if (detail['採購資料:預算金額']) {
-                    tenderAmount = detail['採購資料:預算金額'];
-                    amountType = '預算金額';
-                    console.log(`找到預算金額: 採購資料:預算金額 = ${tenderAmount}`);
-                }
-                // 5. 最後備用：遍歷所有欄位尋找金額
-                else {
-                    for (const key in detail) {
-                        if (key.includes('決標金額') || key.includes('總決標金額') || key.includes('得標金額')) {
-                            const value = detail[key];
-                            if (value && value.toString().match(/[\d,]+/)) {
-                                tenderAmount = value;
-                                amountType = '決標金額';
-                                console.log(`找到金額欄位: ${key} = ${value}`);
-                                break;
-                            }
-                        }
+                    console.log(`找到決標金額: ${winInfo.sourceKey} = ${tenderAmount}`);
+                } else {
+                    const budgetInfo = extractBudgetAmount(detail);
+                    if (budgetInfo.numericAmount !== null) {
+                        tenderAmount = formatCurrency(budgetInfo.numericAmount);
+                        amountType = '預算金額';
+                        console.log(`找到預算金額: ${budgetInfo.sourceKey} = ${tenderAmount}`);
                     }
                 }
-                
                 console.log(`標案 ${index + 1} 金額:`, tenderAmount);
                 
                 // 獲取標案案號
