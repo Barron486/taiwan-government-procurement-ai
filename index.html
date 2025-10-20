@@ -233,6 +233,30 @@
             font-size: 0.95rem;
             line-height: 1.4;
         }
+        
+        .notification-actions {
+            padding-top: 10px;
+            margin-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.3);
+        }
+        
+        .notification-actions .btn {
+            background: rgba(255,255,255,0.9);
+            border: none;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .notification-actions .btn:hover {
+            background: white;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .notification-actions .btn.btn-success {
+            background: rgba(76, 175, 80, 0.9);
+            color: white;
+        }
         @media (max-width: 768px) {
             .main-container {
                 margin: 10px;
@@ -827,13 +851,54 @@
         // 顯示訊息
         function showMessage(message, type = 'info') {
             const messageArea = document.getElementById('messageArea');
-            const alertClass = type === 'error' ? 'alert-danger' : 'alert-success';
-            messageArea.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
+            const alertClass = type === 'error' ? 'alert-danger' : type === 'warning' ? 'alert-warning' : 'alert-success';
             
+            // 錯誤訊息添加複製按鈕
+            const copyButton = type === 'error' ? `
+                <button class="btn btn-outline-danger btn-sm mt-2" onclick="copyMessageAreaError()" title="複製錯誤訊息">
+                    <i class="fas fa-copy me-1"></i>複製錯誤訊息
+                </button>
+            ` : '';
+            
+            messageArea.innerHTML = `
+                <div class="alert ${alertClass}">
+                    <div class="alert-message">${message}</div>
+                    ${copyButton}
+                </div>
+            `;
+            
+            // 成功訊息自動消失，錯誤訊息保留讓使用者手動關閉
             if (type === 'success') {
                 setTimeout(() => {
                     messageArea.innerHTML = '';
                 }, 3000);
+            }
+        }
+        
+        // 複製 messageArea 中的錯誤訊息
+        async function copyMessageAreaError() {
+            const messageArea = document.getElementById('messageArea');
+            const alertMessage = messageArea.querySelector('.alert-message');
+            if (!alertMessage) return;
+            
+            const textContent = alertMessage.textContent || alertMessage.innerText || '';
+            
+            try {
+                await navigator.clipboard.writeText(textContent);
+                const copyBtn = messageArea.querySelector('button');
+                if (copyBtn) {
+                    const originalHTML = copyBtn.innerHTML;
+                    copyBtn.innerHTML = '<i class="fas fa-check me-1"></i>已複製';
+                    copyBtn.classList.remove('btn-outline-danger');
+                    copyBtn.classList.add('btn-success');
+                    setTimeout(() => {
+                        copyBtn.innerHTML = originalHTML;
+                        copyBtn.classList.add('btn-outline-danger');
+                        copyBtn.classList.remove('btn-success');
+                    }, 2000);
+                }
+            } catch (error) {
+                alert('複製失敗，請手動複製錯誤訊息');
             }
         }
 
@@ -1546,6 +1611,22 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                     <button class="btn btn-outline-info btn-sm" onclick="startChat('${brief.title || '無標題'}', '${record.unit_name || '未知機關'}', '${brief.type || '未知類型'}')">
                         <i class="fas fa-comments me-1"></i>AI 對話
                     </button>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-outline-success btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="分享標案">
+                            <i class="fas fa-share-alt me-1"></i>分享
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="shareToLine('${(brief.title || '無標題').replace(/'/g, "\\'")}', '${(record.unit_name || '未知機關').replace(/'/g, "\\'")}', '${buildGovUrl(record)}')">
+                                <i class="fab fa-line text-success me-2"></i>分享到 Line
+                            </a></li>
+                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="shareToGmail('${(brief.title || '無標題').replace(/'/g, "\\'")}', '${(record.unit_name || '未知機關').replace(/'/g, "\\'")}', '${record.job_number || '未知'}', '${buildGovUrl(record)}')">
+                                <i class="fas fa-envelope text-danger me-2"></i>分享到 Gmail
+                            </a></li>
+                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="copyLink('${buildGovUrl(record)}', '${(brief.title || '無標題').replace(/'/g, "\\'")}')">
+                                <i class="fas fa-copy text-primary me-2"></i>複製連結
+                            </a></li>
+                        </ul>
+                    </div>
                 </div>
             `;
             
@@ -1847,18 +1928,68 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                     // 儲存記錄資料供分頁使用
                     window.tenderRecords = records;
                     
-                    // 移除舊的 modal
+                    // 移除舊的 modal（包括 backdrop）
                     const oldModal = document.getElementById('detailModal');
                     if (oldModal) {
+                        console.log('移除舊的 modal');
+                        const bsModal = bootstrap.Modal.getInstance(oldModal);
+                        if (bsModal) {
+                            bsModal.dispose();
+                        }
                         oldModal.remove();
                     }
+                    // 移除可能殘留的 backdrop
+                    document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+                        console.log('移除殘留的 backdrop');
+                        backdrop.remove();
+                    });
+                    
+                    // 確保 body 沒有 modal-open class
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = '';
+                    document.body.style.paddingRight = '';
                     
                     // 添加新的 modal
+                    console.log('添加新的 modal');
                     document.body.insertAdjacentHTML('beforeend', detailHtml);
                     
                     // 顯示 modal
-                    const modal = new bootstrap.Modal(document.getElementById('detailModal'));
-                    modal.show();
+                    const modalElement = document.getElementById('detailModal');
+                    if (!modalElement) {
+                        throw new Error('無法創建 modal 元素');
+                    }
+                    
+                    console.log('初始化 Bootstrap Modal');
+                    try {
+                        const modal = new bootstrap.Modal(modalElement, {
+                            backdrop: true,
+                            keyboard: true,
+                            focus: true
+                        });
+                        
+                        console.log('顯示 modal');
+                        modal.show();
+                        
+                        // 監聽 modal 顯示事件
+                        modalElement.addEventListener('shown.bs.modal', function () {
+                            console.log('Modal 已成功顯示');
+                        });
+                        
+                        // 監聽 modal 隱藏事件
+                        modalElement.addEventListener('hidden.bs.modal', function () {
+                            console.log('Modal 已關閉');
+                            // 清理
+                            modalElement.remove();
+                            document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+                        });
+                        
+                    } catch (modalError) {
+                        console.error('Modal 初始化錯誤:', modalError);
+                        throw new Error(`Modal 初始化失敗: ${modalError.message}`);
+                    }
+                    
+                    // 清除載入訊息
+                    console.log('詳細資料載入完成');
                     
                     // 成功載入，跳出重試迴圈
                     return;
@@ -1899,6 +2030,62 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
             errorMessage += `<br><small class="text-muted">已嘗試 ${maxRetries} 次重試</small>`;
             
             showNotification('載入詳細資料失敗', errorMessage, 'error');
+        }
+
+        // 分享到 Line
+        function shareToLine(title, unitName, govUrl) {
+            const message = `📋 ${title}\n🏢 機關：${unitName}\n🔗 連結：${govUrl}`;
+            const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(message)}`;
+            window.open(lineUrl, '_blank');
+            showNotification('已開啟 Line 分享', '請選擇要分享的對象', 'success');
+        }
+
+        // 分享到 Gmail
+        function shareToGmail(title, unitName, jobNumber, govUrl) {
+            const subject = `政府採購標案：${title}`;
+            const body = `
+政府採購標案資訊
+
+標案名稱：${title}
+機關名稱：${unitName}
+案號：${jobNumber}
+
+詳細資料連結：
+${govUrl}
+
+---
+此郵件由政府採購標案查詢系統自動產生
+            `.trim();
+            
+            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            window.open(gmailUrl, '_blank');
+            showNotification('已開啟 Gmail', '請填寫收件人', 'success');
+        }
+
+        // 複製連結
+        async function copyLink(govUrl, title) {
+            try {
+                await navigator.clipboard.writeText(govUrl);
+                showNotification('連結已複製', `已複製「${title}」的連結到剪貼簿`, 'success');
+            } catch (error) {
+                // 備用方案：使用傳統的複製方法
+                const textArea = document.createElement('textarea');
+                textArea.value = govUrl;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    document.execCommand('copy');
+                    showNotification('連結已複製', `已複製「${title}」的連結到剪貼簿`, 'success');
+                } catch (err) {
+                    showNotification('複製失敗', '請手動複製連結', 'error');
+                }
+                
+                document.body.removeChild(textArea);
+            }
         }
 
         // 加入 Google Calendar
@@ -2133,8 +2320,13 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
             window.allSearchResults = [];
             window.isGeminiSearch = false;
             
+            // 確保搜尋按鈕和輸入框可用
+            document.querySelectorAll('input, button').forEach(element => {
+                element.disabled = false;
+            });
+            
             // 顯示清除訊息
-            showNotification('清除完成', '搜尋結果已清除', 'success');
+            showNotification('清除完成', '搜尋結果已清除，可以進行新的搜尋', 'success');
         }
 
         // 顯示 Gemini API Key 幫助
@@ -2171,6 +2363,52 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
             showMessage(helpText, 'info');
         }
 
+        // 複製錯誤訊息到剪貼簿
+        async function copyErrorMessage() {
+            const notification = document.querySelector('.notification.error .notification-body');
+            if (!notification) return;
+            
+            // 移除 HTML 標籤，只保留文字內容
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = notification.innerHTML;
+            const textContent = tempDiv.textContent || tempDiv.innerText || '';
+            
+            try {
+                await navigator.clipboard.writeText(textContent);
+                // 顯示複製成功的小提示
+                const copyBtn = document.querySelector('.copy-error-btn');
+                if (copyBtn) {
+                    const originalHTML = copyBtn.innerHTML;
+                    copyBtn.innerHTML = '<i class="fas fa-check me-1"></i>已複製';
+                    copyBtn.classList.add('btn-success');
+                    copyBtn.classList.remove('btn-outline-secondary');
+                    setTimeout(() => {
+                        copyBtn.innerHTML = originalHTML;
+                        copyBtn.classList.remove('btn-success');
+                        copyBtn.classList.add('btn-outline-secondary');
+                    }, 2000);
+                }
+            } catch (error) {
+                // 備用方案：使用傳統的複製方法
+                const textArea = document.createElement('textarea');
+                textArea.value = textContent;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    document.execCommand('copy');
+                    alert('錯誤訊息已複製到剪貼簿');
+                } catch (err) {
+                    alert('複製失敗，請手動複製錯誤訊息');
+                }
+                
+                document.body.removeChild(textArea);
+            }
+        }
+
         // 顯示彈出式通知
         function showNotification(title, message, type = 'info', duration = 5000) {
             // 移除現有的通知
@@ -2190,6 +2428,15 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                 'warning': 'fas fa-exclamation-circle'
             };
             
+            // 錯誤訊息添加複製按鈕
+            const errorActions = type === 'error' ? `
+                <div class="notification-actions">
+                    <button class="btn btn-sm copy-error-btn" onclick="copyErrorMessage()" title="複製錯誤訊息以便回報問題">
+                        <i class="fas fa-copy me-1"></i>複製錯誤訊息
+                    </button>
+                </div>
+            ` : '';
+            
             notification.innerHTML = `
                 <div class="notification-header">
                     <h6 class="notification-title">
@@ -2200,7 +2447,8 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                     </button>
                 </div>
                 <div class="notification-body">
-                    ${message}
+                    <div class="notification-message">${message}</div>
+                    ${errorActions}
                 </div>
             `;
             
