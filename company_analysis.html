@@ -416,6 +416,326 @@
             return allResults;
         }
 
+        // 顯示訊息
+        function showMessage(message, type = 'info') {
+            console.log(`${type.toUpperCase()}: ${message}`);
+            // 可以在這裡添加視覺化訊息顯示
+        }
+
+        // 計算統計資料
+        function calculateStats(results) {
+            let totalAmount = 0;
+            let validAmountCount = 0;
+            let currentYear = new Date().getFullYear();
+            let currentYearAmount = 0;
+            let lastYearAmount = 0;
+            let twoYearsAgoAmount = 0;
+
+            results.forEach(record => {
+                const brief = record.brief || {};
+                const amount = brief.amount;
+                
+                if (amount && amount !== '0' && amount !== '') {
+                    const numericAmount = parseFloat(amount.replace(/[^\d.-]/g, ''));
+                    if (!isNaN(numericAmount) && numericAmount > 0) {
+                        totalAmount += numericAmount;
+                        validAmountCount++;
+                        
+                        // 按年度統計
+                        const recordYear = parseInt(record.date.toString().substring(0, 4));
+                        if (recordYear === currentYear) {
+                            currentYearAmount += numericAmount;
+                        } else if (recordYear === currentYear - 1) {
+                            lastYearAmount += numericAmount;
+                        } else if (recordYear === currentYear - 2) {
+                            twoYearsAgoAmount += numericAmount;
+                        }
+                    }
+                }
+            });
+
+            const avgAmount = validAmountCount > 0 ? totalAmount / validAmountCount : 0;
+            
+            document.getElementById('totalAmount').textContent = new Intl.NumberFormat('zh-TW', { 
+                style: 'currency', 
+                currency: 'TWD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(totalAmount);
+            
+            document.getElementById('avgAmount').textContent = new Intl.NumberFormat('zh-TW', { 
+                style: 'currency', 
+                currency: 'TWD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(avgAmount);
+            
+            document.getElementById('totalCount').textContent = results.length;
+            document.getElementById('validAmountCount').textContent = validAmountCount;
+            
+            // 年度統計
+            document.getElementById('currentYearAmount').textContent = new Intl.NumberFormat('zh-TW', { 
+                style: 'currency', 
+                currency: 'TWD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(currentYearAmount);
+            
+            document.getElementById('lastYearAmount').textContent = new Intl.NumberFormat('zh-TW', { 
+                style: 'currency', 
+                currency: 'TWD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(lastYearAmount);
+            
+            document.getElementById('twoYearsAgoAmount').textContent = new Intl.NumberFormat('zh-TW', { 
+                style: 'currency', 
+                currency: 'TWD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(twoYearsAgoAmount);
+        }
+
+        // 顯示年度統計（近3年）
+        function displayYearlyStats(results) {
+            const currentDate = new Date();
+            const currentYear = currentDate.getFullYear();
+            const yearlyData = {};
+            
+            // 初始化近3年的資料
+            for (let i = 0; i < 3; i++) {
+                const year = currentYear - i;
+                yearlyData[year] = {
+                    count: 0,
+                    amount: 0,
+                    records: []
+                };
+            }
+            
+            // 統計各年度資料
+            results.forEach(record => {
+                const recordYear = parseInt(record.date.toString().substring(0, 4));
+                if (yearlyData[recordYear]) {
+                    yearlyData[recordYear].count++;
+                    yearlyData[recordYear].records.push(record);
+                    
+                    const brief = record.brief || {};
+                    const amount = brief.amount;
+                    if (amount && amount !== '0' && amount !== '') {
+                        const numericAmount = parseFloat(amount.replace(/[^\d.-]/g, ''));
+                        if (!isNaN(numericAmount) && numericAmount > 0) {
+                            yearlyData[recordYear].amount += numericAmount;
+                        }
+                    }
+                }
+            });
+            
+            // 顯示年度統計
+            const yearlyHtml = Object.keys(yearlyData).sort((a, b) => b - a).map(year => {
+                const data = yearlyData[year];
+                const formattedAmount = new Intl.NumberFormat('zh-TW', { 
+                    style: 'currency', 
+                    currency: 'TWD',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                }).format(data.amount);
+                
+                return `
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">${year}年</h5>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <div class="text-primary">
+                                            <i class="fas fa-chart-bar fa-2x mb-2"></i>
+                                            <div class="h4">${data.count}</div>
+                                            <small class="text-muted">案件數</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="text-success">
+                                            <i class="fas fa-dollar-sign fa-2x mb-2"></i>
+                                            <div class="h5">${formattedAmount}</div>
+                                            <small class="text-muted">總金額</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('yearlyStats').innerHTML = yearlyHtml;
+        }
+
+        // 檢測是否有複數廠商決標，並取得特定公司的得標資訊
+        function hasMultipleAwardedVendors(detail, targetCompanyName) {
+            const allVendors = [];
+            const targetCompanyAwards = [];
+            
+            // 檢查所有投標廠商欄位
+            for (const key in detail) {
+                if (key.includes('投標廠商:投標廠商') && key.includes(':廠商名稱')) {
+                    const vendorName = detail[key];
+                    const vendorNumber = key.match(/投標廠商:投標廠商(\d+):廠商名稱/);
+                    if (vendorNumber && vendorName) {
+                        const vendorIndex = parseInt(vendorNumber[1]);
+                        const amountKey = `投標廠商:投標廠商${vendorIndex}:決標金額`;
+                        const amount = detail[amountKey];
+                        
+                        // 只有決標金額不為空或0的才算得標廠商
+                        if (amount && amount !== '0' && amount !== '') {
+                            allVendors.push({
+                                index: vendorIndex,
+                                name: vendorName,
+                                amount: amount
+                            });
+                            
+                            // 檢查是否為目標公司
+                            if (targetCompanyName && vendorName.includes(targetCompanyName)) {
+                                targetCompanyAwards.push({
+                                    index: vendorIndex,
+                                    name: vendorName,
+                                    amount: amount
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            
+            console.log('檢測到的所有得標廠商:', allVendors);
+            console.log('目標公司得標資訊:', targetCompanyAwards);
+            
+            // 如果有複數廠商決標且有目標公司得標資訊，返回目標公司的得標資訊
+            if (allVendors.length > 1 && targetCompanyAwards.length > 0) {
+                return {
+                    isMultiple: true,
+                    allVendors: allVendors,
+                    targetCompanyAwards: targetCompanyAwards,
+                    totalTargetAmount: targetCompanyAwards.reduce((sum, award) => sum + (parseFloat(award.amount) || 0), 0)
+                };
+            }
+            
+            return null;
+        }
+
+        // 顯示得標案件清單（顯示所有近3年的案件）
+        function displayTenderList(results, companyName = null) {
+            console.log('顯示得標案件清單，共', results.length, '筆資料');
+            console.log('公司名稱:', companyName);
+            
+            // 顯示所有近3年的案件（最多100筆）
+            const displayCount = Math.min(100, results.length);
+            console.log(`準備顯示 ${displayCount} 筆案件`);
+            
+            const tenderHtml = results.slice(0, displayCount).map((record, index) => {
+                const brief = record.brief || {};
+                const detail = record.detail || {};
+                const dateStr = record.date ? record.date.toString() : '';
+                const formattedDate = dateStr ? `${dateStr.substring(0,4)}年${dateStr.substring(4,6)}月${dateStr.substring(6,8)}日` : '未知';
+                
+                // 調試：輸出 detail 所有欄位
+                console.log(`標案 ${index + 1} (${record.job_number}):`, {
+                    detail_keys: Object.keys(detail),
+                    url: record.url,
+                    has_pkPmsMain: !!detail.pkPmsMain
+                });
+                
+                const jobNumber = record.job_number || '未知';
+                const tenderSequence = detail['招標資料:新增公告傳輸次數'] || detail['無法決標公告:新增公告傳輸次數'] || '1';
+                
+                // 檢測是否有複數廠商決標
+                const multipleVendors = hasMultipleAwardedVendors(detail, companyName);
+                
+                return `
+                    <div class="card mb-2">
+                        <div class="card-body p-3">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h6 class="card-title mb-2">${brief.title || '無標題'}</h6>
+                                    <p class="card-text text-muted mb-2">
+                                        <i class="fas fa-hashtag me-1"></i>案號: ${jobNumber} | 
+                                        <i class="fas fa-calendar me-1"></i>日期: ${formattedDate} | 
+                                        <i class="fas fa-building me-1"></i>機關: ${record.unit_name || '未知機關'}
+                                    </p>
+                                    <div class="mt-2">
+                                        <div class="btn-group" role="group">
+                                            ${multipleVendors && multipleVendors.targetCompanyAwards && multipleVendors.targetCompanyAwards.length > 0 ? `
+                                                <button class="btn btn-outline-warning btn-sm" type="button" onclick="showCompanyAwardDetails(${JSON.stringify(multipleVendors.targetCompanyAwards).replace(/"/g, '&quot;')}, '${(brief.title || '無標題').replace(/'/g, "\\'")}', '${jobNumber}', '${companyName || '未知公司'}')" title="查看該公司決標品項細節">
+                                                    <i class="fas fa-box me-1"></i>該公司決標品項
+                                                </button>
+                                            ` : ''}
+                                            <button class="btn btn-outline-success btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="分享標案">
+                                                <i class="fas fa-share-alt me-1"></i>分享
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item" href="#" onclick="shareToLine('${(brief.title || '無標題').replace(/'/g, "\\'")}', '${(record.unit_name || '未知機關').replace(/'/g, "\\'")}', '${buildGovUrl(record)}')"><i class="fab fa-line me-2"></i>分享到 Line</a></li>
+                                                <li><a class="dropdown-item" href="#" onclick="shareToGmail('${(brief.title || '無標題').replace(/'/g, "\\'")}', '${(record.unit_name || '未知機關').replace(/'/g, "\\'")}', '${jobNumber}', '${buildGovUrl(record)}')"><i class="fas fa-envelope me-2"></i>分享到 Gmail</a></li>
+                                                <li><a class="dropdown-item" href="#" onclick="copyLink('${buildGovUrl(record)}', '${(brief.title || '無標題').replace(/'/g, "\\'")}')"><i class="fas fa-copy me-2"></i>複製連結</a></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <span class="badge ${brief.type && brief.type.includes('決標') ? 'bg-danger' : 'bg-primary'} mb-2">${brief.type || '未知類型'}</span>
+                                    <div class="text-muted">
+                                        <small>${brief.amount || '金額未提供'}</small>
+                                    </div>
+                                    ${multipleVendors && multipleVendors.targetCompanyAwards && multipleVendors.targetCompanyAwards.length > 0 ? `
+                                        <div class="text-warning mt-1">
+                                            <small><i class="fas fa-exclamation-triangle me-1"></i>此廠商於該標案有多個決標品項</small>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const statsHtml = `
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h5 class="card-title text-primary">總案件數</h5>
+                                <h3 class="text-primary" id="totalCount">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h5 class="card-title text-success">總金額</h5>
+                                <h5 class="text-success" id="totalAmount">NT$ 0</h5>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h5 class="card-title text-info">平均金額</h5>
+                                <h5 class="text-info" id="avgAmount">NT$ 0</h5>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h5 class="card-title text-warning">有效金額案件</h5>
+                                <h5 class="text-warning" id="validAmountCount">0</h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('tenderList').innerHTML = statsHtml + tenderHtml;
+        }
+
         // 載入公司資料
         async function loadCompanyData(companyName) {
             try {
@@ -1562,12 +1882,6 @@ ${JSON.stringify(processedData, null, 2)}
             }
         }
 
-        // 顯示訊息
-        function showMessage(message, type = 'info') {
-            console.log(`${type.toUpperCase()}: ${message}`);
-            // 可以在這裡添加視覺化訊息顯示
-        }
-
         // 顯示錯誤
         function showError(message) {
             document.getElementById('loadingSection').style.display = 'none';
@@ -1674,10 +1988,6 @@ ${govUrl}
             }
         }
 
-        // 顯示訊息
-        function showMessage(message, type) {
-            console.log(`[${type.toUpperCase()}] ${message}`);
-        }
 
         // 頁面載入完成後初始化
         document.addEventListener('DOMContentLoaded', initPage);
