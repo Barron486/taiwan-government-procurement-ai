@@ -754,6 +754,58 @@
             document.getElementById('yearlyStats').innerHTML = yearlyHtml;
         }
 
+        // 檢測是否有複數廠商決標，並取得特定公司的得標資訊
+        function hasMultipleAwardedVendors(detail, targetCompanyName) {
+            const allVendors = [];
+            const targetCompanyAwards = [];
+            
+            // 檢查所有投標廠商欄位
+            for (const key in detail) {
+                if (key.includes('投標廠商:投標廠商') && key.includes(':廠商名稱')) {
+                    const vendorName = detail[key];
+                    const vendorNumber = key.match(/投標廠商:投標廠商(\d+):廠商名稱/);
+                    if (vendorNumber && vendorName) {
+                        const vendorIndex = parseInt(vendorNumber[1]);
+                        const amountKey = `投標廠商:投標廠商${vendorIndex}:決標金額`;
+                        const amount = detail[amountKey];
+                        
+                        // 只有決標金額不為空或0的才算得標廠商
+                        if (amount && amount !== '0' && amount !== '') {
+                            allVendors.push({
+                                index: vendorIndex,
+                                name: vendorName,
+                                amount: amount
+                            });
+                            
+                            // 檢查是否為目標公司
+                            if (targetCompanyName && vendorName.includes(targetCompanyName)) {
+                                targetCompanyAwards.push({
+                                    index: vendorIndex,
+                                    name: vendorName,
+                                    amount: amount
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            
+            console.log('檢測到的所有得標廠商:', allVendors);
+            console.log('目標公司得標資訊:', targetCompanyAwards);
+            
+            // 如果有複數廠商決標且有目標公司得標資訊，返回目標公司的得標資訊
+            if (allVendors.length > 1 && targetCompanyAwards.length > 0) {
+                return {
+                    isMultiple: true,
+                    allVendors: allVendors,
+                    targetCompanyAwards: targetCompanyAwards,
+                    totalTargetAmount: targetCompanyAwards.reduce((sum, award) => sum + (parseFloat(award.amount) || 0), 0)
+                };
+            }
+            
+            return null;
+        }
+
         // 顯示得標案件清單（顯示所有近3年的案件）
         function displayTenderList(results, companyName = null) {
             console.log('顯示得標案件清單，共', results.length, '筆資料');
@@ -918,58 +970,6 @@
             `;
             
             document.getElementById('tenderList').innerHTML = statsHtml + tenderHtml;
-        }
-
-        // 檢測是否有複數廠商決標，並取得特定公司的得標資訊
-        function hasMultipleAwardedVendors(detail, targetCompanyName) {
-            const allVendors = [];
-            const targetCompanyAwards = [];
-            
-            // 檢查所有投標廠商欄位
-            for (const key in detail) {
-                if (key.includes('投標廠商:投標廠商') && key.includes(':廠商名稱')) {
-                    const vendorName = detail[key];
-                    const vendorNumber = key.match(/投標廠商:投標廠商(\d+):廠商名稱/);
-                    if (vendorNumber && vendorName) {
-                        const vendorIndex = parseInt(vendorNumber[1]);
-                        const amountKey = `投標廠商:投標廠商${vendorIndex}:決標金額`;
-                        const amount = detail[amountKey];
-                        
-                        // 只有決標金額不為空或0的才算得標廠商
-                        if (amount && amount !== '0' && amount !== '') {
-                            allVendors.push({
-                                index: vendorIndex,
-                                name: vendorName,
-                                amount: amount
-                            });
-                            
-                            // 檢查是否為目標公司
-                            if (targetCompanyName && vendorName.includes(targetCompanyName)) {
-                                targetCompanyAwards.push({
-                                    index: vendorIndex,
-                                    name: vendorName,
-                                    amount: amount
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-            
-            console.log('檢測到的所有得標廠商:', allVendors);
-            console.log('目標公司得標資訊:', targetCompanyAwards);
-            
-            // 如果有複數廠商決標且有目標公司得標資訊，返回目標公司的得標資訊
-            if (allVendors.length > 1 && targetCompanyAwards.length > 0) {
-                return {
-                    isMultiple: true,
-                    allVendors: allVendors,
-                    targetCompanyAwards: targetCompanyAwards,
-                    totalTargetAmount: targetCompanyAwards.reduce((sum, award) => sum + (parseFloat(award.amount) || 0), 0)
-                };
-            }
-            
-            return null;
         }
 
         // 構建政府採購網 URL - 確保只返回政府採購網連結
