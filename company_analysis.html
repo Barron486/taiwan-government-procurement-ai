@@ -426,74 +426,43 @@
         function calculateStats(results) {
             let totalAmount = 0;
             let validAmountCount = 0;
-            let currentYear = new Date().getFullYear();
-            let currentYearAmount = 0;
-            let lastYearAmount = 0;
-            let twoYearsAgoAmount = 0;
-
+            const years = new Set();
+            
             results.forEach(record => {
-                const brief = record.brief || {};
-                const amount = brief.amount;
+                const year = record.date ? record.date.toString().substring(0, 4) : '未知';
+                years.add(year);
                 
-                if (amount && amount !== '0' && amount !== '') {
-                    const numericAmount = parseFloat(amount.replace(/[^\d.-]/g, ''));
-                    if (!isNaN(numericAmount) && numericAmount > 0) {
-                        totalAmount += numericAmount;
-                        validAmountCount++;
-                        
-                        // 按年度統計
-                        const recordYear = parseInt(record.date.toString().substring(0, 4));
-                        if (recordYear === currentYear) {
-                            currentYearAmount += numericAmount;
-                        } else if (recordYear === currentYear - 1) {
-                            lastYearAmount += numericAmount;
-                        } else if (recordYear === currentYear - 2) {
-                            twoYearsAgoAmount += numericAmount;
-                        }
-                    }
+                // 優先使用決標資料:總決標金額
+                let amount = '0';
+                if (record.detail?.['決標資料:總決標金額']) {
+                    amount = record.detail['決標資料:總決標金額'];
+                } else if (record.detail?.['投標廠商:投標廠商1:決標金額']) {
+                    amount = record.detail['投標廠商:投標廠商1:決標金額'];
+                } else if (record.detail?.['採購資料:預算金額']) {
+                    amount = record.detail['採購資料:預算金額'];
+                }
+                
+                const amountMatch = amount.toString().match(/[\d,]+/);
+                if (amountMatch) {
+                    const numericAmount = parseInt(amountMatch[0].replace(/,/g, ''));
+                    totalAmount += numericAmount;
+                    validAmountCount++;
                 }
             });
 
-            const avgAmount = validAmountCount > 0 ? totalAmount / validAmountCount : 0;
-            
-            document.getElementById('totalAmount').textContent = new Intl.NumberFormat('zh-TW', { 
-                style: 'currency', 
-                currency: 'TWD',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-            }).format(totalAmount);
-            
-            document.getElementById('avgAmount').textContent = new Intl.NumberFormat('zh-TW', { 
-                style: 'currency', 
-                currency: 'TWD',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-            }).format(avgAmount);
-            
-            document.getElementById('totalCount').textContent = results.length;
-            document.getElementById('validAmountCount').textContent = validAmountCount;
-            
-            // 年度統計
-            document.getElementById('currentYearAmount').textContent = new Intl.NumberFormat('zh-TW', { 
-                style: 'currency', 
-                currency: 'TWD',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-            }).format(currentYearAmount);
-            
-            document.getElementById('lastYearAmount').textContent = new Intl.NumberFormat('zh-TW', { 
-                style: 'currency', 
-                currency: 'TWD',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-            }).format(lastYearAmount);
-            
-            document.getElementById('twoYearsAgoAmount').textContent = new Intl.NumberFormat('zh-TW', { 
-                style: 'currency', 
-                currency: 'TWD',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-            }).format(twoYearsAgoAmount);
+            const avgAmount = validAmountCount > 0 ? Math.round(totalAmount / validAmountCount) : 0;
+            const yearRange = years.size;
+
+            // 更新統計資料（檢查元素是否存在）
+            const totalTendersEl = document.getElementById('totalTenders');
+            const totalAmountEl = document.getElementById('totalAmount');
+            const avgAmountEl = document.getElementById('avgAmount');
+            const yearRangeEl = document.getElementById('yearRange');
+
+            if (totalTendersEl) totalTendersEl.textContent = results.length;
+            if (totalAmountEl) totalAmountEl.textContent = totalAmount.toLocaleString() + ' 元';
+            if (avgAmountEl) avgAmountEl.textContent = avgAmount.toLocaleString() + ' 元';
+            if (yearRangeEl) yearRangeEl.textContent = yearRange + ' 年';
         }
 
         // 顯示年度統計（近3年）
