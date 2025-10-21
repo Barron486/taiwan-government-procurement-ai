@@ -843,7 +843,7 @@
             document.getElementById('tenderList').innerHTML = statsHtml + tenderHtml;
         }
 
-        // 構建政府採購網 URL
+        // 構建政府採購網 URL - 確保只返回政府採購網連結
         function buildGovUrl(record) {
             // 檢查所有可能的 detail 欄位
             const detail = record.detail || {};
@@ -894,37 +894,22 @@
                 }
             }
             
-            // 5. 使用 record 的 url 欄位
+            // 5. 使用 record 的 url 欄位（只接受政府採購網連結）
             if (record.url && record.url.startsWith('https://web.pcc.gov.tw')) {
                 console.log('使用 record.url:', record.url);
                 return record.url;
             }
             
-            // 6. 備用方案：構建政府採購網的搜尋連結
+            // 6. 構建政府採購網的搜尋連結
             if (record.job_number && record.unit_id) {
-                // 使用政府採購網的搜尋功能，而不是第三方網站
                 const searchUrl = `https://web.pcc.gov.tw/tps/QueryTender/query/searchTenderDetail?job_number=${record.job_number}&unit_id=${record.unit_id}`;
                 console.log('使用政府採購網搜尋連結:', searchUrl);
                 return searchUrl;
-            } else if (record.url) {
-                // 檢查是否為政府採購網連結
-                if (record.url.startsWith('https://web.pcc.gov.tw')) {
-                    console.log('使用 record.url (政府採購網):', record.url);
-                    return record.url;
-                } else if (record.url.startsWith('http')) {
-                    // 如果不是政府採購網連結，重定向到政府採購網首頁
-                    console.log('非政府採購網連結，重定向到首頁');
-                    return 'https://web.pcc.gov.tw/tps/QueryTender/query/queryTender.jsp';
-                } else {
-                    // 相對路徑，重定向到政府採購網首頁
-                    console.log('相對路徑，重定向到政府採購網首頁');
-                    return 'https://web.pcc.gov.tw/tps/QueryTender/query/queryTender.jsp';
-                }
             }
             
-            // 7. 最後備用方案
-            console.log('無法構建連結，返回 #');
-            return '#';
+            // 7. 最後備用方案：返回政府採購網首頁
+            console.log('無法構建特定連結，返回政府採購網首頁');
+            return 'https://web.pcc.gov.tw/tps/QueryTender/query/queryTender.jsp';
         }
 
         // 執行 Gemini AI 分析
