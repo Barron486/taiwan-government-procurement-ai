@@ -438,7 +438,7 @@
                     displayYearlyStats(allResults);
                     
                     // 顯示案件清單（包含所有案件）
-                    displayTenderList(allResults);
+                    displayTenderList(allResults, companyName);
                     
                     // 隱藏載入中，顯示分析結果
                     document.getElementById('loadingSection').style.display = 'none';
@@ -516,7 +516,7 @@
                 displayYearlyStats(detailedResults);
                 
                 // 顯示得標案件清單
-                displayTenderList(detailedResults);
+                displayTenderList(detailedResults, companyName);
                 
                 // 隱藏載入中，顯示分析結果
                 document.getElementById('loadingSection').style.display = 'none';
@@ -703,7 +703,7 @@
         }
 
         // 顯示得標案件清單（顯示所有近3年的案件）
-        function displayTenderList(results) {
+        function displayTenderList(results, companyName = null) {
             console.log('顯示得標案件清單，共', results.length, '筆資料');
             
             // 顯示所有近3年的案件（最多100筆）
@@ -731,9 +731,24 @@
                 // 獲取金額（優先使用決標金額，備用預算金額）
                 let tenderAmount = '金額未知';
                 let amountType = '';
+                let isMultipleAward = false;
                 
+                // 檢查是否有複數廠商決標且該公司有得標
+                if (multipleVendors && multipleVendors.targetCompanyAwards && multipleVendors.targetCompanyAwards.length > 0) {
+                    // 使用該公司的總決標金額
+                    const totalAmount = multipleVendors.totalTargetAmount;
+                    tenderAmount = new Intl.NumberFormat('zh-TW', { 
+                        style: 'currency', 
+                        currency: 'TWD',
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0
+                    }).format(totalAmount);
+                    amountType = '決標金額（該公司）';
+                    isMultipleAward = true;
+                    console.log(`複數決標 - 該公司總金額: ${tenderAmount}`);
+                }
                 // 1. 優先使用決標資料:總決標金額
-                if (detail['決標資料:總決標金額']) {
+                else if (detail['決標資料:總決標金額']) {
                     tenderAmount = detail['決標資料:總決標金額'];
                     amountType = '決標金額';
                     console.log(`找到決標金額: 決標資料:總決標金額 = ${tenderAmount}`);
@@ -783,7 +798,7 @@
                 const tenderSequence = detail['招標資料:新增公告傳輸次數'] || detail['無法決標公告:新增公告傳輸次數'] || '1';
                 
                 // 檢測是否有複數廠商決標
-                const multipleVendors = hasMultipleAwardedVendors(detail);
+                const multipleVendors = hasMultipleAwardedVendors(detail, companyName);
                 
                 return `
                     <div class="card mb-2">
@@ -806,9 +821,9 @@
                                     </p>
                                     <div class="mt-2">
                                         <div class="btn-group" role="group">
-                                            ${multipleVendors ? `
-                                                <button class="btn btn-outline-warning btn-sm" type="button" onclick="showMultipleAwardDetails(${JSON.stringify(multipleVendors).replace(/"/g, '&quot;')}, '${(brief.title || '無標題').replace(/'/g, "\\'")}', '${jobNumber}')" title="查看複數決標細節">
-                                                    <i class="fas fa-users me-1"></i>複數決標
+                                            ${multipleVendors && multipleVendors.targetCompanyAwards && multipleVendors.targetCompanyAwards.length > 0 ? `
+                                                <button class="btn btn-outline-warning btn-sm" type="button" onclick="showCompanyAwardDetails(${JSON.stringify(multipleVendors.targetCompanyAwards).replace(/"/g, '&quot;')}, '${(brief.title || '無標題').replace(/'/g, "\\'")}', '${jobNumber}', '${companyName}')" title="查看該公司決標品項細節">
+                                                    <i class="fas fa-box me-1"></i>該公司決標品項
                                                 </button>
                                             ` : ''}
                                             <button class="btn btn-outline-success btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="分享標案">
@@ -833,6 +848,7 @@
                                     <br>
                                     <strong class="text-success">${tenderAmount}</strong>
                                     ${amountType ? `<br><small class="text-muted">${amountType}</small>` : ''}
+                                    ${isMultipleAward ? `<br><small class="text-warning"><i class="fas fa-info-circle me-1"></i>此廠商於該標案有多個決標品項</small>` : ''}
                                 </div>
                             </div>
                         </div>
@@ -851,9 +867,10 @@
             document.getElementById('tenderList').innerHTML = statsHtml + tenderHtml;
         }
 
-        // 檢測是否有複數廠商決標
-        function hasMultipleAwardedVendors(detail) {
-            const vendors = [];
+        // 檢測是否有複數廠商決標，並取得特定公司的得標資訊
+        function hasMultipleAwardedVendors(detail, targetCompanyName) {
+            const allVendors = [];
+            const targetCompanyAwards = [];
             
             // 檢查所有投標廠商欄位
             for (const key in detail) {
@@ -867,18 +884,39 @@
                         
                         // 只有決標金額不為空或0的才算得標廠商
                         if (amount && amount !== '0' && amount !== '') {
-                            vendors.push({
+                            allVendors.push({
                                 index: vendorIndex,
                                 name: vendorName,
                                 amount: amount
                             });
+                            
+                            // 檢查是否為目標公司
+                            if (targetCompanyName && vendorName.includes(targetCompanyName)) {
+                                targetCompanyAwards.push({
+                                    index: vendorIndex,
+                                    name: vendorName,
+                                    amount: amount
+                                });
+                            }
                         }
                     }
                 }
             }
             
-            console.log('檢測到的得標廠商:', vendors);
-            return vendors.length > 1 ? vendors : null;
+            console.log('檢測到的所有得標廠商:', allVendors);
+            console.log('目標公司得標資訊:', targetCompanyAwards);
+            
+            // 如果有複數廠商決標且有目標公司得標資訊，返回目標公司的得標資訊
+            if (allVendors.length > 1 && targetCompanyAwards.length > 0) {
+                return {
+                    isMultiple: true,
+                    allVendors: allVendors,
+                    targetCompanyAwards: targetCompanyAwards,
+                    totalTargetAmount: targetCompanyAwards.reduce((sum, award) => sum + (parseFloat(award.amount) || 0), 0)
+                };
+            }
+            
+            return null;
         }
 
         // 構建政府採購網 URL - 確保只返回政府採購網連結
@@ -948,6 +986,131 @@
             // 7. 最後備用方案：返回政府採購網首頁
             console.log('無法構建特定連結，返回政府採購網首頁');
             return 'https://web.pcc.gov.tw/tps/QueryTender/query/queryTender.jsp';
+        }
+
+        // 顯示特定公司決標品項細節 Modal
+        function showCompanyAwardDetails(companyAwards, tenderTitle, jobNumber, companyName) {
+            let awardsHtml = '';
+            
+            companyAwards.forEach((award, index) => {
+                const formattedAmount = award.amount ? 
+                    new Intl.NumberFormat('zh-TW', { 
+                        style: 'currency', 
+                        currency: 'TWD',
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0
+                    }).format(parseFloat(award.amount)) : '未提供';
+                
+                awardsHtml += `
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h6 class="card-title">
+                                        <i class="fas fa-box text-primary me-2"></i>
+                                        品項 ${index + 1}
+                                    </h6>
+                                    <p class="card-text text-muted mb-0">
+                                        <i class="fas fa-hashtag me-1"></i>廠商編號: ${award.index}
+                                    </p>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <div class="text-success">
+                                        <strong>決標金額</strong><br>
+                                        <span class="h5 mb-0">${formattedAmount}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            const totalAmount = companyAwards.reduce((sum, award) => {
+                return sum + (parseFloat(award.amount) || 0);
+            }, 0);
+            
+            const formattedTotal = new Intl.NumberFormat('zh-TW', { 
+                style: 'currency', 
+                currency: 'TWD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(totalAmount);
+            
+            const modalHtml = `
+                <div class="modal fade" id="companyAwardModal" tabindex="-1" aria-labelledby="companyAwardModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header bg-warning text-dark">
+                                <h5 class="modal-title" id="companyAwardModalLabel">
+                                    <i class="fas fa-building me-2"></i>${companyName} - 決標品項細節
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-4">
+                                    <h6 class="text-primary">
+                                        <i class="fas fa-file-contract me-2"></i>${tenderTitle || '無標題'}
+                                    </h6>
+                                    <p class="text-muted mb-0">
+                                        <i class="fas fa-hashtag me-1"></i>案號: ${jobNumber}
+                                    </p>
+                                </div>
+                                
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    ${companyName} 在此標案中共有 <strong>${companyAwards.length}</strong> 個決標品項，總金額為 <strong>${formattedTotal}</strong>
+                                </div>
+                                
+                                <h6 class="mb-3">
+                                    <i class="fas fa-list me-2"></i>決標品項清單
+                                </h6>
+                                
+                                ${awardsHtml}
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="fas fa-times me-1"></i>關閉
+                                </button>
+                                <button type="button" class="btn btn-primary" onclick="copyCompanyAwardDetails('${companyName}', '${tenderTitle}', '${jobNumber}', '${formattedTotal}')">
+                                    <i class="fas fa-copy me-1"></i>複製摘要
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // 移除舊的 Modal（如果存在）
+            const existingModal = document.getElementById('companyAwardModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            // 新增 Modal 到頁面
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // 顯示 Modal
+            const modal = new bootstrap.Modal(document.getElementById('companyAwardModal'));
+            modal.show();
+        }
+        
+        // 複製公司決標摘要
+        function copyCompanyAwardDetails(companyName, tenderTitle, jobNumber, totalAmount) {
+            const summary = `公司名稱: ${companyName}\n標案名稱: ${tenderTitle}\n案號: ${jobNumber}\n總決標金額: ${totalAmount}\n多品項決標`;
+            
+            navigator.clipboard.writeText(summary).then(() => {
+                alert(`${companyName} 決標摘要已複製到剪貼簿`);
+            }).catch(() => {
+                // 備用方案
+                const textArea = document.createElement('textarea');
+                textArea.value = summary;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert(`${companyName} 決標摘要已複製到剪貼簿`);
+            });
         }
 
         // 顯示複數決標細節 Modal
