@@ -284,38 +284,114 @@
             };
 
             try {
-                // 嘗試從 API 獲取 VAC11201 案件的詳細資料
-                console.log('開始搜尋 VAC11201 案件...');
+                // 嘗試多種搜尋策略找到正茂生物科技的相關案件
+                console.log('開始搜尋正茂生物科技相關案件...');
                 
-                // 使用政府採購 API 搜尋
-                const searchUrl = 'https://pcc-api.openfun.app/api/searchbytitle?query=VAC11201&page=1';
-                console.log('搜尋 URL:', searchUrl);
+                const searchStrategies = [
+                    { name: 'VAC11201 案號搜尋', url: 'https://pcc-api.openfun.app/api/searchbytitle?query=VAC11201&page=1' },
+                    { name: '醫療儀器設備集中採購搜尋', url: 'https://pcc-api.openfun.app/api/searchbytitle?query=醫療儀器設備集中採購&page=1' },
+                    { name: '正茂生物科技公司搜尋', url: 'https://pcc-api.openfun.app/api/searchbycompanyname?query=正茂生物科技&page=1' },
+                    { name: '臺北榮民總醫院搜尋', url: 'https://pcc-api.openfun.app/api/searchbytitle?query=臺北榮民總醫院&page=1' },
+                    { name: '112年度醫療儀器搜尋', url: 'https://pcc-api.openfun.app/api/searchbytitle?query=112年度醫療儀器&page=1' }
+                ];
                 
-                const searchResponse = await fetch(searchUrl);
-                const searchData = await searchResponse.json();
+                let foundRecord = null;
+                let searchStrategy = '';
                 
-                console.log('搜尋結果:', searchData);
+                for (const strategy of searchStrategies) {
+                    console.log(`\n=== ${strategy.name} ===`);
+                    console.log('搜尋 URL:', strategy.url);
+                    
+                    try {
+                        const searchResponse = await fetch(strategy.url);
+                        const searchData = await searchResponse.json();
+                        
+                        console.log('搜尋結果:', searchData);
+                        
+                        if (searchData && searchData.length > 0) {
+                            console.log(`搜尋到 ${searchData.length} 筆結果`);
+                            
+                            // 尋找包含正茂生物科技或醫療儀器設備的案件
+                            const relevantRecord = searchData.find(record => {
+                                const title = record.brief?.title || '';
+                                const jobNumber = record.job_number || '';
+                                const unitName = record.unit_name || '';
+                                
+                                console.log(`檢查案件: ${title} | ${jobNumber} | ${unitName}`);
+                                
+                                return (
+                                    title.includes('正茂') ||
+                                    title.includes('醫療儀器設備') ||
+                                    title.includes('112年度醫療儀器') ||
+                                    unitName.includes('臺北榮民總醫院') ||
+                                    jobNumber.includes('VAC11201')
+                                );
+                            });
+                            
+                            if (relevantRecord) {
+                                foundRecord = relevantRecord;
+                                searchStrategy = strategy.name;
+                                console.log('✓ 找到相關案件:', relevantRecord);
+                                console.log('案件 pkPmsMain:', relevantRecord.detail?.pkPmsMain || '未找到');
+                                break;
+                            } else {
+                                console.log('✗ 此搜尋策略未找到相關案件');
+                                // 顯示前幾筆結果供參考
+                                console.log('前3筆結果:', searchData.slice(0, 3).map(r => ({
+                                    title: r.brief?.title,
+                                    job_number: r.job_number,
+                                    unit_name: r.unit_name
+                                })));
+                            }
+                        } else {
+                            console.log('✗ 此搜尋策略無結果');
+                        }
+                    } catch (error) {
+                        console.log('✗ 此搜尋策略失敗:', error.message);
+                    }
+                }
                 
-                if (searchData && searchData.length > 0) {
-                    const record = searchData[0];
-                    console.log('找到案件:', record);
+                if (foundRecord) {
+                    console.log(`\n=== 使用 ${searchStrategy} 找到案件 ===`);
+                    console.log('找到案件:', foundRecord);
                     
                     // 獲取詳細資料
-                    const detailUrl = `https://pcc-api.openfun.app/api/tender?unit_id=${record.unit_id}&job_number=${record.job_number}`;
-                    console.log('詳細資料 URL:', detailUrl);
+                    let detailData = null;
                     
-                    const detailResponse = await fetch(detailUrl);
-                    const detailData = await detailResponse.json();
+                    // 首先檢查 record 中是否已經有 detail 資料
+                    if (foundRecord.detail && Object.keys(foundRecord.detail).length > 0) {
+                        console.log('使用 record 中現有的 detail 資料');
+                        detailData = foundRecord.detail;
+                    } else {
+                        // 嘗試使用 pkPmsMain 獲取詳細資料
+                        const pkPmsMain = foundRecord.detail?.pkPmsMain;
+                        if (pkPmsMain) {
+                            console.log('使用 pkPmsMain 獲取詳細資料:', pkPmsMain);
+                            const detailUrl = `https://pcc-api.openfun.app/api/tender?pkPmsMain=${pkPmsMain}`;
+                            console.log('詳細資料 URL:', detailUrl);
+                            
+                            const detailResponse = await fetch(detailUrl);
+                            detailData = await detailResponse.json();
+                        } else {
+                            // 使用傳統方式獲取詳細資料
+                            console.log('使用傳統方式獲取詳細資料');
+                            const detailUrl = `https://pcc-api.openfun.app/api/tender?unit_id=${foundRecord.unit_id}&job_number=${foundRecord.job_number}`;
+                            console.log('詳細資料 URL:', detailUrl);
+                            
+                            const detailResponse = await fetch(detailUrl);
+                            detailData = await detailResponse.json();
+                        }
+                    }
                     
                     console.log('詳細資料:', detailData);
                     
                     // 測試金額提取
                     const mockRecord = {
-                        brief: record.brief || {},
+                        brief: foundRecord.brief || {},
                         detail: detailData || {},
-                        date: record.date,
-                        job_number: record.job_number,
-                        unit_id: record.unit_id
+                        date: foundRecord.date,
+                        job_number: foundRecord.job_number,
+                        unit_id: foundRecord.unit_id
                     };
                     
                     console.log('\n=== 測試金額提取 ===');
@@ -332,10 +408,11 @@
                     resultContainer.innerHTML = `
                         <div class="alert alert-info">
                             <h6><i class="fas fa-info-circle me-2"></i>案件資訊</h6>
-                            <p><strong>標題：</strong>${record.brief?.title || '無標題'}</p>
-                            <p><strong>案號：</strong>${record.job_number}</p>
-                            <p><strong>機關：</strong>${record.unit_name}</p>
-                            <p><strong>日期：</strong>${record.date}</p>
+                            <p><strong>搜尋策略：</strong>${searchStrategy}</p>
+                            <p><strong>標題：</strong>${foundRecord.brief?.title || '無標題'}</p>
+                            <p><strong>案號：</strong>${foundRecord.job_number}</p>
+                            <p><strong>機關：</strong>${foundRecord.unit_name}</p>
+                            <p><strong>日期：</strong>${foundRecord.date}</p>
                         </div>
                         
                         <div class="alert ${amount > 0 ? 'alert-success' : 'alert-warning'}">
