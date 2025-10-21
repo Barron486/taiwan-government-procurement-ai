@@ -650,12 +650,77 @@
                                 </div>
                                 <div class="col-md-4 text-end">
                                     <span class="badge ${brief.type && brief.type.includes('決標') ? 'bg-danger' : 'bg-primary'} mb-2">${brief.type || '未知類型'}</span>
-                                    <div class="text-muted">
-                                        <small>${brief.amount || '金額未提供'}</small>
+                                    <div class="${(() => {
+                                        // 決定金額和樣式
+                                        let amount = '金額未知';
+                                        let amountClass = 'text-muted';
+                                        
+                                        // 如果是複數廠商決標且該公司有得標
+                                        if (multipleVendors && multipleVendors.targetCompanyAwards && multipleVendors.targetCompanyAwards.length > 0) {
+                                            const totalAmount = multipleVendors.targetCompanyAwards.reduce((sum, award) => {
+                                                const amt = parseFloat(award.amount?.replace(/[^\\d.-]/g, '') || 0);
+                                                return sum + amt;
+                                            }, 0);
+                                            
+                                            if (totalAmount > 0) {
+                                                amount = new Intl.NumberFormat('zh-TW', {
+                                                    style: 'currency',
+                                                    currency: 'TWD',
+                                                    minimumFractionDigits: 0,
+                                                    maximumFractionDigits: 0
+                                                }).format(totalAmount);
+                                                amountClass = 'text-success fw-bold';
+                                            }
+                                        }
+                                        // 單一廠商決標
+                                        else if (detail['決標資料:總決標金額']) {
+                                            amount = detail['決標資料:總決標金額'];
+                                            amountClass = 'text-success fw-bold';
+                                        } else if (detail['投標廠商:投標廠商1:決標金額']) {
+                                            amount = detail['投標廠商:投標廠商1:決標金額'];
+                                            amountClass = 'text-success fw-bold';
+                                        } else if (detail['採購資料:決標金額']) {
+                                            amount = detail['採購資料:決標金額'];
+                                            amountClass = 'text-success fw-bold';
+                                        } else if (detail['採購資料:預算金額']) {
+                                            amount = detail['採購資料:預算金額'];
+                                            amountClass = 'text-info';
+                                        } else if (brief.amount) {
+                                            amount = brief.amount;
+                                            amountClass = 'text-muted';
+                                        }
+                                        
+                                        return amountClass;
+                                    })()}">
+                                        ${(() => {
+                                            // 決定金額
+                                            if (multipleVendors && multipleVendors.targetCompanyAwards && multipleVendors.targetCompanyAwards.length > 0) {
+                                                const totalAmount = multipleVendors.targetCompanyAwards.reduce((sum, award) => {
+                                                    const amt = parseFloat(award.amount?.replace(/[^\\d.-]/g, '') || 0);
+                                                    return sum + amt;
+                                                }, 0);
+                                                
+                                                if (totalAmount > 0) {
+                                                    return new Intl.NumberFormat('zh-TW', {
+                                                        style: 'currency',
+                                                        currency: 'TWD',
+                                                        minimumFractionDigits: 0,
+                                                        maximumFractionDigits: 0
+                                                    }).format(totalAmount);
+                                                }
+                                            }
+                                            
+                                            return detail['決標資料:總決標金額'] || 
+                                                   detail['投標廠商:投標廠商1:決標金額'] || 
+                                                   detail['採購資料:決標金額'] || 
+                                                   detail['採購資料:預算金額'] || 
+                                                   brief.amount || 
+                                                   '金額未知';
+                                        })()}
                                     </div>
-                                    ${multipleVendors && multipleVendors.targetCompanyAwards && multipleVendors.targetCompanyAwards.length > 0 ? `
+                                    ${multipleVendors && multipleVendors.targetCompanyAwards && multipleVendors.targetCompanyAwards.length > 1 ? `
                                         <div class="text-warning mt-1">
-                                            <small><i class="fas fa-exclamation-triangle me-1"></i>此廠商於該標案有多個決標品項</small>
+                                            <small><i class="fas fa-box me-1"></i>${multipleVendors.targetCompanyAwards.length} 個決標品項</small>
                                         </div>
                                     ` : ''}
                                 </div>
@@ -1052,11 +1117,11 @@
                                     <div class="text-success">
                                         <strong>決標金額</strong><br>
                                         <span class="h5 mb-0">${formattedAmount}</span>
-                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+                </div>
                 `;
             });
             
@@ -1080,7 +1145,7 @@
                                     <i class="fas fa-building me-2"></i>${companyName} - 決標品項細節
                                 </h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
+                                </div>
                             <div class="modal-body">
                                 <div class="mb-4">
                                     <h6 class="text-primary">
@@ -1111,8 +1176,8 @@
                                 </button>
                             </div>
                         </div>
-                    </div>
-                </div>
+                            </div>
+                        </div>
             `;
             
             // 移除舊的 Modal（如果存在）
@@ -1177,12 +1242,12 @@
                                     <div class="text-success">
                                         <strong>決標金額</strong><br>
                                         <span class="h5 mb-0">${formattedAmount}</span>
-                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                `;
+                </div>
+            `;
             });
             
             const totalAmount = vendors.reduce((sum, vendor) => {
