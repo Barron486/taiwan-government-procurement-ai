@@ -3,7 +3,7 @@
   "name": "taiwan-government-procurement-ai",
   "functions": {
     "api/proxy.js": {
-      "runtime": "nodejs18.x"
+      "runtime": "@vercel/node@3.0.7"
     }
   },
   "rewrites": [
