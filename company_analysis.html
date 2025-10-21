@@ -518,42 +518,42 @@
                                 headers: { 'Accept': 'application/json' }
                             }, 10000, 1);
                             
-                            const detailData = await detailResponse.json();
-                            const detailRecord = detailData.records?.[0] || detailData;
-                            
-                            // 智能合併詳細資料
-                            let mergedDetail = record.detail || {};
-                            
-                            // 如果 detailRecord 有 detail 屬性，合併它
-                            if (detailRecord.detail && typeof detailRecord.detail === 'object') {
-                                mergedDetail = { ...mergedDetail, ...detailRecord.detail };
-                            }
-                            // 如果 detailRecord 本身就是 detail 對象（包含決標相關欄位）
-                            else if (detailRecord && typeof detailRecord === 'object') {
-                                // 檢查是否包含決標相關欄位
-                                const hasDetailFields = Object.keys(detailRecord).some(key => 
-                                    key.includes('決標') || key.includes('投標') || key.includes('採購') || key.includes('機關')
-                                );
-                                if (hasDetailFields) {
-                                    mergedDetail = { ...mergedDetail, ...detailRecord };
+                                const detailData = await detailResponse.json();
+                                const detailRecord = detailData.records?.[0] || detailData;
+                                
+                                // 智能合併詳細資料
+                                let mergedDetail = record.detail || {};
+                                
+                                // 如果 detailRecord 有 detail 屬性，合併它
+                                if (detailRecord.detail && typeof detailRecord.detail === 'object') {
+                                    mergedDetail = { ...mergedDetail, ...detailRecord.detail };
                                 }
-                            }
-                            
-                            const mergedRecord = {
-                                ...record,
-                                detail: mergedDetail,
-                                url: detailRecord.url || record.url,
-                                pkPmsMain: detailRecord.pkPmsMain || record.pkPmsMain
-                            };
-                            
-                            console.log(`合併 ${record.job_number} 詳細資料:`, {
-                                original_detail_keys: Object.keys(record.detail || {}),
-                                detailRecord_keys: Object.keys(detailRecord),
-                                detailRecord_detail_keys: detailRecord.detail ? Object.keys(detailRecord.detail) : [],
-                                merged_detail_keys: Object.keys(mergedDetail),
-                                has_award_amount: !!(mergedDetail['決標資料:總決標金額'] || mergedDetail['投標廠商:投標廠商1:決標金額'])
-                            });
-                            return mergedRecord;
+                                // 如果 detailRecord 本身就是 detail 對象（包含決標相關欄位）
+                                else if (detailRecord && typeof detailRecord === 'object') {
+                                    // 檢查是否包含決標相關欄位
+                                    const hasDetailFields = Object.keys(detailRecord).some(key => 
+                                        key.includes('決標') || key.includes('投標') || key.includes('採購') || key.includes('機關')
+                                    );
+                                    if (hasDetailFields) {
+                                        mergedDetail = { ...mergedDetail, ...detailRecord };
+                                    }
+                                }
+                                
+                                const mergedRecord = {
+                                    ...record,
+                                    detail: mergedDetail,
+                                    url: detailRecord.url || record.url,
+                                    pkPmsMain: detailRecord.pkPmsMain || record.pkPmsMain
+                                };
+                                
+                                console.log(`合併 ${record.job_number} 詳細資料:`, {
+                                    original_detail_keys: Object.keys(record.detail || {}),
+                                    detailRecord_keys: Object.keys(detailRecord),
+                                    detailRecord_detail_keys: detailRecord.detail ? Object.keys(detailRecord.detail) : [],
+                                    merged_detail_keys: Object.keys(mergedDetail),
+                                    has_award_amount: !!(mergedDetail['決標資料:總決標金額'] || mergedDetail['投標廠商:投標廠商1:決標金額'])
+                                });
+                                return mergedRecord;
                         } catch (error) {
                             console.error(`載入 ${record.job_number} 詳細資料錯誤:`, error);
                         }
@@ -759,6 +759,7 @@
         // 顯示得標案件清單（顯示所有近3年的案件）
         function displayTenderList(results, companyName = null) {
             console.log('顯示得標案件清單，共', results.length, '筆資料');
+            console.log('公司名稱:', companyName);
             
             // 顯示所有近3年的案件（最多100筆）
             const displayCount = Math.min(100, results.length);
@@ -876,7 +877,7 @@
                                     <div class="mt-2">
                                         <div class="btn-group" role="group">
                                             ${multipleVendors && multipleVendors.targetCompanyAwards && multipleVendors.targetCompanyAwards.length > 0 ? `
-                                                <button class="btn btn-outline-warning btn-sm" type="button" onclick="showCompanyAwardDetails(${JSON.stringify(multipleVendors.targetCompanyAwards).replace(/"/g, '&quot;')}, '${(brief.title || '無標題').replace(/'/g, "\\'")}', '${jobNumber}', '${companyName}')" title="查看該公司決標品項細節">
+                                                <button class="btn btn-outline-warning btn-sm" type="button" onclick="showCompanyAwardDetails(${JSON.stringify(multipleVendors.targetCompanyAwards).replace(/"/g, '&quot;')}, '${(brief.title || '無標題').replace(/'/g, "\\'")}', '${jobNumber}', '${companyName || '未知公司'}')" title="查看該公司決標品項細節">
                                                     <i class="fas fa-box me-1"></i>該公司決標品項
                                                 </button>
                                             ` : ''}
