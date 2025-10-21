@@ -1,0 +1,85 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+        
+      - name: Prepare GitHub Pages files
+        run: |
+          # 複製 GitHub Pages 版本檔案
+          cp index-github.html index.html
+          
+          # 建立 GitHub Pages 專用的公司分析頁面
+          cp company_analysis.html company_analysis-github.html
+          
+          # 修改公司分析頁面以支援 GitHub Pages
+          sed -i 's/config\.js/\/\/ config.js (GitHub Pages 模式)/g' company_analysis-github.html
+          sed -i 's/window\.API_CONFIG/\/\/ window.API_CONFIG (GitHub Pages 模式)/g' company_analysis-github.html
+          
+          # 建立 GitHub Pages 專用的 README
+          cat > README-github.md << 'EOF'
+          # 台灣政府採購公告查詢系統 - GitHub Pages 版本
+          
+          ## ⚠️ 重要提醒
+          
+          這是 GitHub Pages 版本，可能受到 CORS 限制影響。
+          
+          **建議使用 Vercel 版本以獲得最佳體驗：**
+          - 完整功能支援
+          - API 代理解決 CORS 問題
+          - 更好的效能和穩定性
+          
+          ## 功能限制
+          
+          - ✅ 基本搜尋功能
+          - ✅ AI 分析（需要 API Key）
+          - ⚠️ 標案詳情可能無法載入（CORS 限制）
+          - ⚠️ 公司分析可能無法正常運作（CORS 限制）
+          
+          ## 使用方式
+          
+          1. 輸入搜尋關鍵字
+          2. 選擇性輸入 Gemini API Key
+          3. 點擊「開始搜尋」
+          
+          ## 技術說明
+          
+          此版本使用直接 API 呼叫，可能受到瀏覽器 CORS 政策限制。
+          建議使用 Vercel 版本以獲得完整功能。
+          EOF
+          
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
