@@ -332,6 +332,90 @@
             }
         }
 
+        // 搜尋所有頁面
+        async function searchAllPages(searchType, query) {
+            let allResults = [];
+            let page = 1;
+            const maxPages = 5; // 限制最多搜尋5頁
+            let consecutiveErrors = 0;
+
+            while (page <= maxPages && consecutiveErrors < 2) {
+                try {
+                    const path = `/searchby${searchType}?query=${encodeURIComponent(query)}&page=${page}`;
+                    console.log(`搜尋第 ${page} 頁:`, path);
+                    
+                    // 減少重試次數，並在請求之間加入延遲以避免速率限制
+                    if (page > 1) {
+                        await new Promise(r => setTimeout(r, 500));  // 每頁間隔 500ms
+                    }
+                    const { resp: response } = await fetchFromApis(path, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    }, 10000, 1);  // 減少重試次數到 1 次
+                    
+                    console.log(`第 ${page} 頁回應:`, response.status, response.statusText);
+                    
+                    if (!response.ok) {
+                        // 如果是 403，在瀏覽器環境中可能仍然可以正常運作
+                        if (response.status === 403) {
+                            console.warn(`第 ${page} 頁收到 403，但在瀏覽器中這通常是正常的`);
+                            // 403 通常只發生在非瀏覽器環境，所以這裡我們記錄但不拋出錯誤
+                            consecutiveErrors++;
+                            
+                            // 如果是第一頁就 403，可能真的有問題
+                            if (page === 1) {
+                                console.error('第一頁就收到 403，可能確實有 API 連接問題');
+                                throw new Error('API 連接被拒絕（403）');
+                            }
+                        } else if (response.status === 404) {
+                            console.log(`第 ${page} 頁沒有更多資料`);
+                            break;
+                        } else {
+                            console.warn(`第 ${page} 頁回應異常: ${response.status}`);
+                            consecutiveErrors++;
+                        }
+                        
+                        // 如果連續錯誤，停止搜尋
+                        if (consecutiveErrors >= 2) {
+                            console.warn('連續錯誤太多，停止搜尋');
+                            break;
+                        }
+                        page++;
+                        continue;
+                    }
+
+                    const data = await response.json();
+                    console.log(`第 ${page} 頁資料:`, data);
+                    
+                    if (data && data.records && data.records.length > 0) {
+                        allResults = allResults.concat(data.records);
+                        console.log(`第 ${page} 頁找到 ${data.records.length} 筆，累計 ${allResults.length} 筆`);
+                        consecutiveErrors = 0; // 重置錯誤計數
+                    } else {
+                        console.log(`第 ${page} 頁沒有資料`);
+                        break;
+                    }
+                    
+                    page++;
+                } catch (error) {
+                    console.error(`搜尋第 ${page} 頁錯誤:`, error);
+                    consecutiveErrors++;
+                    
+                    if (consecutiveErrors >= 2) {
+                        console.warn('連續錯誤太多，停止搜尋');
+                        break;
+                    }
+                    
+                    page++;
+                }
+            }
+
+            console.log(`總共搜尋到 ${allResults.length} 筆結果（搜尋了 ${page-1} 頁）`);
+            return allResults;
+        }
+
         // 載入公司資料
         async function loadCompanyData(companyName) {
             try {
@@ -1482,109 +1566,6 @@ ${JSON.stringify(processedData, null, 2)}
         function showMessage(message, type = 'info') {
             console.log(`${type.toUpperCase()}: ${message}`);
             // 可以在這裡添加視覺化訊息顯示
-        }
-
-        // 搜尋所有頁面
-        async function searchAllPages(searchType, query) {
-            let allResults = [];
-            let page = 1;
-            const maxPages = 5; // 限制最多搜尋5頁
-            let consecutiveErrors = 0;
-
-            while (page <= maxPages && consecutiveErrors < 2) {
-                try {
-                    const path = `/searchby${searchType}?query=${encodeURIComponent(query)}&page=${page}`;
-                    console.log(`搜尋第 ${page} 頁:`, path);
-                    
-                    // 減少重試次數，並在請求之間加入延遲以避免速率限制
-                    if (page > 1) {
-                        await new Promise(r => setTimeout(r, 500));  // 每頁間隔 500ms
-                    }
-                    const { resp: response } = await fetchFromApis(path, {
-                        method: 'GET',
-                        headers: {
-                            'Accept': 'application/json'
-                        }
-                    }, 10000, 1);  // 減少重試次數到 1 次
-                    
-                    console.log(`第 ${page} 頁回應:`, response.status, response.statusText);
-                    
-                    if (!response.ok) {
-                        // 如果是 403，在瀏覽器環境中可能仍然可以正常運作
-                        if (response.status === 403) {
-                            console.warn(`第 ${page} 頁收到 403，但在瀏覽器中這通常是正常的`);
-                            // 403 通常只發生在非瀏覽器環境，所以這裡我們記錄但不拋出錯誤
-                            consecutiveErrors++;
-                            
-                            // 如果是第一頁就 403，可能真的有問題
-                            if (page === 1) {
-                                console.error('第一頁就收到 403，可能確實有 API 連接問題');
-                                throw new Error('API 連接被拒絕（403）');
-                            }
-                        } else if (response.status === 404) {
-                            console.log(`第 ${page} 頁沒有更多資料`);
-                            break;
-                        } else {
-                            console.warn(`第 ${page} 頁回應異常: ${response.status}`);
-                            consecutiveErrors++;
-                        }
-                        
-                        // 如果連續錯誤，停止搜尋
-                        if (consecutiveErrors >= 2) {
-                            console.warn('連續錯誤太多，停止搜尋');
-                            break;
-                        }
-                        page++;
-                        continue;
-                    }
-                    
-                    // 重置錯誤計數
-                    consecutiveErrors = 0;
-                    
-                    const data = await response.json();
-                    const records = data.records || [];
-                    
-                    console.log(`第 ${page} 頁結果:`, records.length, '筆');
-                    
-                    if (records.length === 0) {
-                        console.log('沒有更多結果，停止搜尋');
-                        break;
-                    }
-                    
-                    allResults = allResults.concat(records);
-                    page++;
-                    
-                } catch (error) {
-                    console.error(`搜尋第 ${page} 頁錯誤:`, error);
-                    consecutiveErrors++;
-                    
-                    // 網路錯誤的詳細診斷
-                    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-                        console.error('網路請求失敗 - 可能是 CORS、網路問題或 API 服務異常');
-                        
-                        // 如果是第一頁就失敗，這是嚴重問題
-                        if (page === 1) {
-                            throw new Error('無法連接到 API 服務，請檢查網路連接或稍後再試');
-                        }
-                    }
-                    
-                    // 如果已經有一些結果，就返回這些結果
-                    if (allResults.length > 0) {
-                        console.log(`雖然遇到錯誤，但已取得 ${allResults.length} 筆結果`);
-                        break;
-                    }
-                    
-                    // 如果沒有任何結果且連續錯誤，拋出錯誤
-                    if (consecutiveErrors >= 2) {
-                        throw error;
-                    }
-                    
-                    page++;
-                }
-            }
-
-            console.log(`總共搜尋到 ${allResults.length} 筆結果（搜尋了 ${page-1} 頁）`);
-            return allResults;
         }
 
         // 顯示錯誤
