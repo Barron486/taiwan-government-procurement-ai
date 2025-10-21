@@ -1,16 +1,15 @@
 {
   "version": 2,
   "name": "taiwan-government-procurement-ai",
-  "builds": [
-    {
-      "src": "api/proxy.js",
-      "use": "@vercel/node"
+  "functions": {
+    "api/proxy.js": {
+      "runtime": "nodejs18.x"
     }
-  ],
-  "routes": [
+  },
+  "rewrites": [
     {
-      "src": "/api/proxy",
-      "dest": "/api/proxy.js"
+      "source": "/api/(.*)",
+      "destination": "/api/proxy"
     }
   ],
   "headers": [
