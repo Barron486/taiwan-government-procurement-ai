@@ -33,11 +33,12 @@
     "url": "https://github.com/Barron486/taiwan-government-procurement-ai/issues"
   },
   "homepage": "https://barron486.github.io/taiwan-government-procurement-ai",
+  "type": "module",
   "dependencies": {
-    "node-fetch": "^2.6.7"
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {},
   "engines": {
-    "node": "18.x"
+    "node": "22.x"
   }
 }
