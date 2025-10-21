@@ -493,6 +493,7 @@
         // 計算統計資料
         function calculateStats(results, companyName) {
             console.log(`=== 計算統計資料 (${results.length} 筆) ===`);
+            console.log(`公司名稱: ${companyName}`);
             
             let totalAmount = 0;
             let validAmountCount = 0;
@@ -502,17 +503,33 @@
                 const year = record.date ? record.date.toString().substring(0, 4) : '未知';
                 years.add(year);
                 
+                console.log(`\n--- 處理第 ${index + 1} 筆案件 ---`);
+                console.log(`案件標題: ${record.brief?.title || '無標題'}`);
+                console.log(`案件日期: ${record.date}`);
+                console.log(`Brief amount: ${record.brief?.amount || '無'}`);
+                console.log(`Detail keys:`, Object.keys(record.detail || {}).filter(k => k.includes('金額') || k.includes('決標')));
+                
                 const amount = extractCompanyAmount(record, companyName);
+                console.log(`提取到的金額: ${amount}`);
+                
                 if (amount > 0) {
                     totalAmount += amount;
                     validAmountCount++;
+                    console.log(`✓ 累計金額: ${totalAmount.toLocaleString()}`);
+                } else {
+                    console.log(`✗ 無效金額，跳過`);
                 }
             });
 
             const avgAmount = validAmountCount > 0 ? Math.round(totalAmount / validAmountCount) : 0;
             const yearRange = 3; // 固定為3年
 
-            console.log(`✓ 統計完成: 總金額=${totalAmount.toLocaleString()}, 有效案件=${validAmountCount}, 平均=${avgAmount.toLocaleString()}`);
+            console.log(`\n=== 統計結果 ===`);
+            console.log(`總案件數: ${results.length}`);
+            console.log(`有效金額案件: ${validAmountCount}`);
+            console.log(`總金額: ${totalAmount.toLocaleString()}`);
+            console.log(`平均金額: ${avgAmount.toLocaleString()}`);
+            console.log(`年份範圍: ${yearRange} 年`);
 
             // 更新統計資料（檢查元素是否存在）
             const totalTendersEl = document.getElementById('totalTenders');
