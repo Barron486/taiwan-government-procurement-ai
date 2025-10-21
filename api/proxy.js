@@ -3,6 +3,9 @@
  * 解決 CORS 問題並加入快取機制
  */
 
+// 在 Node.js 18+ 中，fetch 是內建的，但為了相容性我們明確導入
+const fetch = require('node-fetch');
+
 // API 來源列表
 const API_BASES = [
     'https://pcc-api.openfun.app/api',
