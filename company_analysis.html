@@ -606,25 +606,62 @@
                 const dateStr = record.date ? record.date.toString() : '';
                 const formattedDate = dateStr ? `${dateStr.substring(0,4)}年${dateStr.substring(4,6)}月${dateStr.substring(6,8)}日` : '未知';
                 
-                // 調試：輸出 detail 所有欄位
-                console.log(`標案 ${index + 1} (${record.job_number}):`, {
-                    detail_keys: Object.keys(detail),
-                    url: record.url,
-                    has_pkPmsMain: !!detail.pkPmsMain
-                });
-                
                 const jobNumber = record.job_number || '未知';
                 const tenderSequence = detail['招標資料:新增公告傳輸次數'] || detail['無法決標公告:新增公告傳輸次數'] || '1';
                 
                 // 檢測是否有複數廠商決標
                 const multipleVendors = hasMultipleAwardedVendors(detail, companyName);
                 
+                // 計算決標金額
+                let tenderAmount = '金額未知';
+                let amountClass = 'text-muted';
+                
+                // 如果是複數廠商決標且該公司有得標
+                if (multipleVendors && multipleVendors.targetCompanyAwards && multipleVendors.targetCompanyAwards.length > 0) {
+                    const totalAmount = multipleVendors.targetCompanyAwards.reduce((sum, award) => {
+                        const amt = parseFloat(award.amount?.replace(/[^\d.-]/g, '') || 0);
+                        return sum + amt;
+                    }, 0);
+                    
+                    if (totalAmount > 0) {
+                        tenderAmount = new Intl.NumberFormat('zh-TW', {
+                            style: 'currency',
+                            currency: 'TWD',
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0
+                        }).format(totalAmount);
+                        amountClass = 'text-success fw-bold';
+                    }
+                }
+                // 單一廠商決標
+                else if (detail['決標資料:總決標金額']) {
+                    tenderAmount = detail['決標資料:總決標金額'];
+                    amountClass = 'text-success fw-bold';
+                } else if (detail['投標廠商:投標廠商1:決標金額']) {
+                    tenderAmount = detail['投標廠商:投標廠商1:決標金額'];
+                    amountClass = 'text-success fw-bold';
+                } else if (detail['採購資料:決標金額']) {
+                    tenderAmount = detail['採購資料:決標金額'];
+                    amountClass = 'text-success fw-bold';
+                } else if (detail['採購資料:預算金額']) {
+                    tenderAmount = detail['採購資料:預算金額'];
+                    amountClass = 'text-info';
+                } else if (brief.amount) {
+                    tenderAmount = brief.amount;
+                    amountClass = 'text-muted';
+                }
+                
                 return `
                     <div class="card mb-2">
                         <div class="card-body p-3">
                             <div class="row">
                                 <div class="col-md-8">
-                                    <h6 class="card-title mb-2">${brief.title || '無標題'}</h6>
+                                    <h6 class="card-title mb-2">
+                                        <a href="${buildGovUrl(record)}" target="_blank" class="text-decoration-none text-dark">
+                                            ${brief.title || '無標題'}
+                                            <i class="fas fa-external-link-alt ms-1" style="font-size: 0.75em;"></i>
+                                        </a>
+                                    </h6>
                                     <p class="card-text text-muted mb-2">
                                         <i class="fas fa-hashtag me-1"></i>案號: ${jobNumber} | 
                                         <i class="fas fa-calendar me-1"></i>日期: ${formattedDate} | 
@@ -650,73 +687,8 @@
                                 </div>
                                 <div class="col-md-4 text-end">
                                     <span class="badge ${brief.type && brief.type.includes('決標') ? 'bg-danger' : 'bg-primary'} mb-2">${brief.type || '未知類型'}</span>
-                                    <div class="${(() => {
-                                        // 決定金額和樣式
-                                        let amount = '金額未知';
-                                        let amountClass = 'text-muted';
-                                        
-                                        // 如果是複數廠商決標且該公司有得標
-                                        if (multipleVendors && multipleVendors.targetCompanyAwards && multipleVendors.targetCompanyAwards.length > 0) {
-                                            const totalAmount = multipleVendors.targetCompanyAwards.reduce((sum, award) => {
-                                                const amt = parseFloat(award.amount?.replace(/[^\\d.-]/g, '') || 0);
-                                                return sum + amt;
-                                            }, 0);
-                                            
-                                            if (totalAmount > 0) {
-                                                amount = new Intl.NumberFormat('zh-TW', {
-                                                    style: 'currency',
-                                                    currency: 'TWD',
-                                                    minimumFractionDigits: 0,
-                                                    maximumFractionDigits: 0
-                                                }).format(totalAmount);
-                                                amountClass = 'text-success fw-bold';
-                                            }
-                                        }
-                                        // 單一廠商決標
-                                        else if (detail['決標資料:總決標金額']) {
-                                            amount = detail['決標資料:總決標金額'];
-                                            amountClass = 'text-success fw-bold';
-                                        } else if (detail['投標廠商:投標廠商1:決標金額']) {
-                                            amount = detail['投標廠商:投標廠商1:決標金額'];
-                                            amountClass = 'text-success fw-bold';
-                                        } else if (detail['採購資料:決標金額']) {
-                                            amount = detail['採購資料:決標金額'];
-                                            amountClass = 'text-success fw-bold';
-                                        } else if (detail['採購資料:預算金額']) {
-                                            amount = detail['採購資料:預算金額'];
-                                            amountClass = 'text-info';
-                                        } else if (brief.amount) {
-                                            amount = brief.amount;
-                                            amountClass = 'text-muted';
-                                        }
-                                        
-                                        return amountClass;
-                                    })()}">
-                                        ${(() => {
-                                            // 決定金額
-                                            if (multipleVendors && multipleVendors.targetCompanyAwards && multipleVendors.targetCompanyAwards.length > 0) {
-                                                const totalAmount = multipleVendors.targetCompanyAwards.reduce((sum, award) => {
-                                                    const amt = parseFloat(award.amount?.replace(/[^\\d.-]/g, '') || 0);
-                                                    return sum + amt;
-                                                }, 0);
-                                                
-                                                if (totalAmount > 0) {
-                                                    return new Intl.NumberFormat('zh-TW', {
-                                                        style: 'currency',
-                                                        currency: 'TWD',
-                                                        minimumFractionDigits: 0,
-                                                        maximumFractionDigits: 0
-                                                    }).format(totalAmount);
-                                                }
-                                            }
-                                            
-                                            return detail['決標資料:總決標金額'] || 
-                                                   detail['投標廠商:投標廠商1:決標金額'] || 
-                                                   detail['採購資料:決標金額'] || 
-                                                   detail['採購資料:預算金額'] || 
-                                                   brief.amount || 
-                                                   '金額未知';
-                                        })()}
+                                    <div class="${amountClass}">
+                                        ${tenderAmount}
                                     </div>
                                     ${multipleVendors && multipleVendors.targetCompanyAwards && multipleVendors.targetCompanyAwards.length > 1 ? `
                                         <div class="text-warning mt-1">
