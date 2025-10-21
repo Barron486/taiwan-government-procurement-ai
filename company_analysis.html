@@ -283,10 +283,8 @@
                 for (const [key, value] of urlParams) {
                     params[key] = value;
                 }
-                // 返回沒有參數的路徑
-                return params;
             }
-            return {};
+            return params;
         }
 
         // 從 URL 參數獲取公司名稱和 Gemini API Key
