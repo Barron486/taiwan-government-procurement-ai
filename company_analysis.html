@@ -782,6 +782,9 @@
                 // 獲取第幾次決標
                 const tenderSequence = detail['招標資料:新增公告傳輸次數'] || detail['無法決標公告:新增公告傳輸次數'] || '1';
                 
+                // 檢測是否有複數廠商決標
+                const multipleVendors = hasMultipleAwardedVendors(detail);
+                
                 return `
                     <div class="card mb-2">
                         <div class="card-body p-3">
@@ -803,6 +806,11 @@
                                     </p>
                                     <div class="mt-2">
                                         <div class="btn-group" role="group">
+                                            ${multipleVendors ? `
+                                                <button class="btn btn-outline-warning btn-sm" type="button" onclick="showMultipleAwardDetails(${JSON.stringify(multipleVendors).replace(/"/g, '&quot;')}, '${(brief.title || '無標題').replace(/'/g, "\\'")}', '${jobNumber}')" title="查看複數決標細節">
+                                                    <i class="fas fa-users me-1"></i>複數決標
+                                                </button>
+                                            ` : ''}
                                             <button class="btn btn-outline-success btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="分享標案">
                                                 <i class="fas fa-share-alt me-1"></i>分享
                                             </button>
@@ -841,6 +849,36 @@
             `;
             
             document.getElementById('tenderList').innerHTML = statsHtml + tenderHtml;
+        }
+
+        // 檢測是否有複數廠商決標
+        function hasMultipleAwardedVendors(detail) {
+            const vendors = [];
+            
+            // 檢查所有投標廠商欄位
+            for (const key in detail) {
+                if (key.includes('投標廠商:投標廠商') && key.includes(':廠商名稱')) {
+                    const vendorName = detail[key];
+                    const vendorNumber = key.match(/投標廠商:投標廠商(\d+):廠商名稱/);
+                    if (vendorNumber && vendorName) {
+                        const vendorIndex = parseInt(vendorNumber[1]);
+                        const amountKey = `投標廠商:投標廠商${vendorIndex}:決標金額`;
+                        const amount = detail[amountKey];
+                        
+                        // 只有決標金額不為空或0的才算得標廠商
+                        if (amount && amount !== '0' && amount !== '') {
+                            vendors.push({
+                                index: vendorIndex,
+                                name: vendorName,
+                                amount: amount
+                            });
+                        }
+                    }
+                }
+            }
+            
+            console.log('檢測到的得標廠商:', vendors);
+            return vendors.length > 1 ? vendors : null;
         }
 
         // 構建政府採購網 URL - 確保只返回政府採購網連結
@@ -910,6 +948,131 @@
             // 7. 最後備用方案：返回政府採購網首頁
             console.log('無法構建特定連結，返回政府採購網首頁');
             return 'https://web.pcc.gov.tw/tps/QueryTender/query/queryTender.jsp';
+        }
+
+        // 顯示複數決標細節 Modal
+        function showMultipleAwardDetails(vendors, tenderTitle, jobNumber) {
+            let vendorsHtml = '';
+            
+            vendors.forEach((vendor, index) => {
+                const formattedAmount = vendor.amount ? 
+                    new Intl.NumberFormat('zh-TW', { 
+                        style: 'currency', 
+                        currency: 'TWD',
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0
+                    }).format(parseFloat(vendor.amount)) : '未提供';
+                
+                vendorsHtml += `
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h6 class="card-title">
+                                        <i class="fas fa-building text-primary me-2"></i>
+                                        ${vendor.name || '未知廠商'}
+                                    </h6>
+                                    <p class="card-text text-muted mb-0">
+                                        <i class="fas fa-hashtag me-1"></i>廠商編號: ${vendor.index}
+                                    </p>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <div class="text-success">
+                                        <strong>決標金額</strong><br>
+                                        <span class="h5 mb-0">${formattedAmount}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            const totalAmount = vendors.reduce((sum, vendor) => {
+                return sum + (parseFloat(vendor.amount) || 0);
+            }, 0);
+            
+            const formattedTotal = new Intl.NumberFormat('zh-TW', { 
+                style: 'currency', 
+                currency: 'TWD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(totalAmount);
+            
+            const modalHtml = `
+                <div class="modal fade" id="multipleAwardModal" tabindex="-1" aria-labelledby="multipleAwardModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header bg-primary text-white">
+                                <h5 class="modal-title" id="multipleAwardModalLabel">
+                                    <i class="fas fa-users me-2"></i>複數決標細節
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-4">
+                                    <h6 class="text-primary">
+                                        <i class="fas fa-file-contract me-2"></i>${tenderTitle || '無標題'}
+                                    </h6>
+                                    <p class="text-muted mb-0">
+                                        <i class="fas fa-hashtag me-1"></i>案號: ${jobNumber}
+                                    </p>
+                                </div>
+                                
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    此標案共有 <strong>${vendors.length}</strong> 家廠商得標，總決標金額為 <strong>${formattedTotal}</strong>
+                                </div>
+                                
+                                <h6 class="mb-3">
+                                    <i class="fas fa-list me-2"></i>得標廠商清單
+                                </h6>
+                                
+                                ${vendorsHtml}
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="fas fa-times me-1"></i>關閉
+                                </button>
+                                <button type="button" class="btn btn-primary" onclick="copyMultipleAwardDetails('${tenderTitle}', '${jobNumber}', '${formattedTotal}')">
+                                    <i class="fas fa-copy me-1"></i>複製摘要
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // 移除舊的 Modal（如果存在）
+            const existingModal = document.getElementById('multipleAwardModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            // 新增 Modal 到頁面
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // 顯示 Modal
+            const modal = new bootstrap.Modal(document.getElementById('multipleAwardModal'));
+            modal.show();
+        }
+        
+        // 複製複數決標摘要
+        function copyMultipleAwardDetails(tenderTitle, jobNumber, totalAmount) {
+            const summary = `標案名稱: ${tenderTitle}\n案號: ${jobNumber}\n總決標金額: ${totalAmount}\n複數廠商決標`;
+            
+            navigator.clipboard.writeText(summary).then(() => {
+                alert('複數決標摘要已複製到剪貼簿');
+            }).catch(() => {
+                // 備用方案
+                const textArea = document.createElement('textarea');
+                textArea.value = summary;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('複數決標摘要已複製到剪貼簿');
+            });
         }
 
         // 執行 Gemini AI 分析
