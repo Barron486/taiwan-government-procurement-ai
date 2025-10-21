@@ -544,6 +544,10 @@
             const allVendors = [];
             const targetCompanyAwards = [];
             
+            console.log('=== 檢測複數廠商決標 ===');
+            console.log('目標公司:', targetCompanyName);
+            console.log('Detail keys:', Object.keys(detail).filter(k => k.includes('投標廠商')));
+            
             // 檢查所有投標廠商欄位
             for (const key in detail) {
                 if (key.includes('投標廠商:投標廠商') && key.includes(':廠商名稱')) {
@@ -551,43 +555,96 @@
                     const vendorNumber = key.match(/投標廠商:投標廠商(\d+):廠商名稱/);
                     if (vendorNumber && vendorName) {
                         const vendorIndex = parseInt(vendorNumber[1]);
-                        const amountKey = `投標廠商:投標廠商${vendorIndex}:決標金額`;
-                        const amount = detail[amountKey];
+                        
+                        // 嘗試多種方式獲取決標金額
+                        let amount = null;
+                        const possibleAmountKeys = [
+                            `投標廠商:投標廠商${vendorIndex}:決標金額`,
+                            `投標廠商:投標廠商${vendorIndex}:得標金額`,
+                            `決標資料:決標廠商${vendorIndex}:決標金額`,
+                            `決標資料:決標廠商${vendorIndex}:得標金額`
+                        ];
+                        
+                        for (const amountKey of possibleAmountKeys) {
+                            if (detail[amountKey]) {
+                                amount = detail[amountKey];
+                                console.log(`找到金額: ${vendorName} - ${amountKey} = ${amount}`);
+                                break;
+                            }
+                        }
+                        
+                        // 如果沒找到，檢查是否有 "決標品項" 相關欄位
+                        if (!amount) {
+                            for (const itemKey in detail) {
+                                if (itemKey.includes(`投標廠商${vendorIndex}`) && 
+                                    (itemKey.includes('決標') || itemKey.includes('得標')) && 
+                                    itemKey.includes('金額')) {
+                                    amount = detail[itemKey];
+                                    console.log(`找到金額(通配): ${vendorName} - ${itemKey} = ${amount}`);
+                                    break;
+                                }
+                            }
+                        }
                         
                         // 只有決標金額不為空或0的才算得標廠商
-                        if (amount && amount !== '0' && amount !== '') {
-                            allVendors.push({
+                        if (amount && amount !== '0' && amount !== '' && amount !== 'NT$0') {
+                            const vendor = {
                                 index: vendorIndex,
                                 name: vendorName,
-                                amount: amount
-                            });
+                                amount: amount,
+                                item: detail[`投標廠商:投標廠商${vendorIndex}:品項名稱`] || 
+                                      detail[`決標資料:決標廠商${vendorIndex}:品項名稱`] || 
+                                      `品項${vendorIndex}`
+                            };
                             
-                            // 檢查是否為目標公司
-                            if (targetCompanyName && vendorName.includes(targetCompanyName)) {
-                                targetCompanyAwards.push({
-                                    index: vendorIndex,
-                                    name: vendorName,
-                                    amount: amount
-                                });
+                            allVendors.push(vendor);
+                            
+                            // 檢查是否為目標公司（更寬鬆的匹配）
+                            if (targetCompanyName) {
+                                // 移除公司類型後綴進行比較
+                                const cleanTargetName = targetCompanyName
+                                    .replace(/股份有限公司|有限公司|企業有限公司|企業股份有限公司/g, '')
+                                    .trim();
+                                const cleanVendorName = vendorName
+                                    .replace(/股份有限公司|有限公司|企業有限公司|企業股份有限公司/g, '')
+                                    .trim();
+                                
+                                if (cleanVendorName.includes(cleanTargetName) || cleanTargetName.includes(cleanVendorName)) {
+                                    targetCompanyAwards.push(vendor);
+                                    console.log(`✓ 匹配目標公司: ${vendorName}`);
+                                }
                             }
                         }
                     }
                 }
             }
             
-            console.log('檢測到的所有得標廠商:', allVendors);
-            console.log('目標公司得標資訊:', targetCompanyAwards);
+            console.log('✓ 檢測到的所有得標廠商:', allVendors.length, '家');
+            console.log('✓ 目標公司得標品項:', targetCompanyAwards.length, '項');
             
-            // 如果有複數廠商決標且有目標公司得標資訊，返回目標公司的得標資訊
-            if (allVendors.length > 1 && targetCompanyAwards.length > 0) {
+            // 如果有複數廠商決標
+            if (allVendors.length > 1) {
+                console.log('✓ 確認為複數廠商決標案件');
+                
+                // 計算目標公司總金額
+                let totalTargetAmount = 0;
+                if (targetCompanyAwards.length > 0) {
+                    totalTargetAmount = targetCompanyAwards.reduce((sum, award) => {
+                        const numAmount = parseFloat(award.amount?.replace(/[^\d.-]/g, '') || 0);
+                        return sum + numAmount;
+                    }, 0);
+                    console.log('✓ 目標公司總決標金額:', totalTargetAmount);
+                }
+                
                 return {
                     isMultiple: true,
                     allVendors: allVendors,
                     targetCompanyAwards: targetCompanyAwards,
-                    totalTargetAmount: targetCompanyAwards.reduce((sum, award) => sum + (parseFloat(award.amount) || 0), 0)
+                    totalTargetAmount: totalTargetAmount
                 };
             }
             
+            console.log('✗ 非複數廠商決標案件');
             return null;
         }
 
