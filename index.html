@@ -2076,12 +2076,12 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                     
                     <h6 class="mt-3">招標資訊</h6>
                     <table class="table table-sm">
-                        <tr><td><strong>招標方式</strong></td><td>${detail['招標資料:招標方式'] || '無資料'}</td></tr>
-                        <tr><td><strong>決標方式</strong></td><td>${detail['招標資料:決標方式'] || '無資料'}</td></tr>
-                        <tr><td><strong>開標時間</strong></td><td>${detail['領投開標:開標時間'] || '無資料'}</td></tr>
-                        <tr><td><strong>開標地點</strong></td><td>${detail['領投開標:開標地點'] || '無資料'}</td></tr>
-                        <tr><td><strong>截止投標</strong></td><td>${detail['領投開標:截止投標'] || '無資料'}</td></tr>
-                        <tr><td><strong>押標金</strong></td><td>${detail['領投開標:是否須繳納押標金:押標金額度'] || '無資料'}</td></tr>
+                        <tr><td><strong>招標方式</strong></td><td>${getTenderInfo(detail, '招標方式')}</td></tr>
+                        <tr><td><strong>決標方式</strong></td><td>${getTenderInfo(detail, '決標方式')}</td></tr>
+                        <tr><td><strong>開標時間</strong></td><td>${getTenderInfo(detail, '開標時間')}</td></tr>
+                        <tr><td><strong>開標地點</strong></td><td>${getTenderInfo(detail, '開標地點')}</td></tr>
+                        <tr><td><strong>截止投標</strong></td><td>${getTenderInfo(detail, '截止投標')}</td></tr>
+                        <tr><td><strong>押標金</strong></td><td>${getTenderInfo(detail, '押標金')}</td></tr>
                     </table>
                     
                     <div class="mt-3">
@@ -2206,12 +2206,12 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                                         
                                         <h6 class="mt-3">招標資訊</h6>
                                         <table class="table table-sm">
-                                            <tr><td><strong>招標方式</strong></td><td>${detail['招標資料:招標方式'] || '無資料'}</td></tr>
-                                            <tr><td><strong>決標方式</strong></td><td>${detail['招標資料:決標方式'] || '無資料'}</td></tr>
-                                            <tr><td><strong>開標時間</strong></td><td>${detail['領投開標:開標時間'] || '無資料'}</td></tr>
-                                            <tr><td><strong>開標地點</strong></td><td>${detail['領投開標:開標地點'] || '無資料'}</td></tr>
-                                            <tr><td><strong>截止投標</strong></td><td>${detail['領投開標:截止投標'] || '無資料'}</td></tr>
-                                            <tr><td><strong>押標金</strong></td><td>${detail['領投開標:是否須繳納押標金:押標金額度'] || '無資料'}</td></tr>
+                                            <tr><td><strong>招標方式</strong></td><td>${getTenderInfo(detail, '招標方式')}</td></tr>
+                                            <tr><td><strong>決標方式</strong></td><td>${getTenderInfo(detail, '決標方式')}</td></tr>
+                                            <tr><td><strong>開標時間</strong></td><td>${getTenderInfo(detail, '開標時間')}</td></tr>
+                                            <tr><td><strong>開標地點</strong></td><td>${getTenderInfo(detail, '開標地點')}</td></tr>
+                                            <tr><td><strong>截止投標</strong></td><td>${getTenderInfo(detail, '截止投標')}</td></tr>
+                                            <tr><td><strong>押標金</strong></td><td>${getTenderInfo(detail, '押標金')}</td></tr>
                                         </table>
                                         
                                         <div class="mt-3">
@@ -3300,6 +3300,69 @@ ${JSON.stringify(results.slice(0, 10), null, 2)}
         });
 
         // ==================== 自動監控功能結束 ====================
+
+        // 智能獲取招標資訊
+        function getTenderInfo(detail, infoType) {
+            if (!detail) return '無資料';
+            
+            // 定義各種可能的欄位名稱
+            const fieldMappings = {
+                '招標方式': [
+                    '招標資料:招標方式',
+                    '招標方式',
+                    '採購資料:招標方式',
+                    '招標:招標方式'
+                ],
+                '決標方式': [
+                    '招標資料:決標方式',
+                    '決標方式',
+                    '採購資料:決標方式',
+                    '決標:決標方式'
+                ],
+                '開標時間': [
+                    '領投開標:開標時間',
+                    '開標時間',
+                    '開標:開標時間',
+                    '時間:開標時間'
+                ],
+                '開標地點': [
+                    '領投開標:開標地點',
+                    '開標地點',
+                    '開標:開標地點',
+                    '地點:開標地點'
+                ],
+                '截止投標': [
+                    '領投開標:截止投標',
+                    '截止投標',
+                    '投標:截止投標',
+                    '時間:截止投標'
+                ],
+                '押標金': [
+                    '領投開標:是否須繳納押標金:押標金額度',
+                    '押標金',
+                    '押標金額度',
+                    '投標:押標金'
+                ]
+            };
+            
+            const possibleFields = fieldMappings[infoType] || [];
+            
+            // 嘗試各種欄位名稱
+            for (const field of possibleFields) {
+                if (detail[field] && detail[field] !== '' && detail[field] !== '無資料') {
+                    return detail[field];
+                }
+            }
+            
+            // 如果沒找到，嘗試模糊匹配
+            for (const key in detail) {
+                if (key.includes(infoType) && detail[key] && detail[key] !== '' && detail[key] !== '無資料') {
+                    return detail[key];
+                }
+            }
+            
+            return '無資料';
+        }
     </script>
 </body>
 </html>
