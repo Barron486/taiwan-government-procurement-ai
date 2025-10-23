@@ -4,8 +4,8 @@
   "description": "台灣政府採購公告查詢系統 - AI 智能分析版 v2.0",
   "main": "index.html",
   "scripts": {
-    "start": "python -m http.server 8000",
-    "serve": "python -m http.server 8000",
+    "start": "node server.js",
+    "serve": "node server.js",
     "dev": "vercel dev",
     "deploy": "vercel --prod"
   },
@@ -35,6 +35,7 @@
   "homepage": "https://barron486.github.io/taiwan-government-procurement-ai",
   "type": "module",
   "dependencies": {
+    "express": "^4.19.2",
     "node-fetch": "^3.3.2"
   },
   "devDependencies": {},

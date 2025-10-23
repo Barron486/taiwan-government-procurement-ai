@@ -3,61 +3,33 @@
  * 根據環境自動切換 API 端點
  */
 
-// 檢測當前環境
-const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-const isGitHubPages = window.location.hostname.includes('github.io');
-
-// API 配置
+// API 配置（自動偵測是否走本機/雲端代理）
 const API_CONFIG = {
-    // Vercel API 代理（生產環境使用）
-    VERCEL_PROXY: 'https://taiwan-government-procurement-ai.vercel.app/api/proxy',
-    
-    // 直接 API（本地開發使用）
     DIRECT_APIS: [
         'https://pcc-api.openfun.app/api',
         'https://pcc.g0v.ronny.tw/api'
     ],
-    
-    // 根據環境選擇 API
     getApiBase() {
-        // 如果是生產環境或 GitHub Pages，使用 Vercel 代理
-        if (isProduction || isGitHubPages) {
-            console.log('🚀 使用 Vercel API 代理');
-            return this.VERCEL_PROXY;
-        }
-        
-        // 本地開發，直接使用 API
-        console.log('💻 本地開發模式，直接使用 API');
-        return null; // 返回 null 表示使用直接 API
+        const h = window.location.hostname;
+        // 在以下環境使用相對路徑代理 `/api`
+        if (
+            h.includes('vercel.app') ||
+            h.includes('github.io') ||
+            h.endsWith('.appspot.com') ||
+            h.endsWith('.run.app') ||
+            h === 'localhost' ||
+            h === '127.0.0.1'
+        ) return '/api';
+        return null; // 其他情況直接打 API（例如本地純檔案伺服器）
     },
-    
-    // 構建 API 請求 URL
     buildUrl(path, params = {}) {
         const apiBase = this.getApiBase();
-        
-        if (apiBase === this.VERCEL_PROXY) {
-            // 使用 Vercel 代理
-            const queryParams = new URLSearchParams({
-                path,
-                ...params
-            });
-            return `${apiBase}?${queryParams}`;
-        } else {
-            // 直接使用 API
-            const queryString = new URLSearchParams(params).toString();
-            const fullPath = queryString ? `${path}?${queryString}` : path;
-            return this.DIRECT_APIS[0] + fullPath;
-        }
+        const qs = new URLSearchParams(params).toString();
+        const sep = path.includes('?') ? '&' : '?';
+        if (apiBase) return `${apiBase}${path}${qs ? sep + qs : ''}`;
+        return `${this.DIRECT_APIS[0]}${path}${qs ? sep + qs : ''}`;
     }
 };
-
-// 輸出環境資訊
-console.log('📍 環境檢測:', {
-    hostname: window.location.hostname,
-    isProduction,
-    isGitHubPages,
-    apiMode: API_CONFIG.getApiBase() ? 'Proxy' : 'Direct'
-});
 
 // 導出配置
 window.API_CONFIG = API_CONFIG;

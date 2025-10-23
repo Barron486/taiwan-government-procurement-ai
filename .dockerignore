@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log
+.git
+.github
+.vercel
+.vscode
+__pycache__
+*.log
+dist
+build
+coverage
+
+
+
