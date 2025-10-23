@@ -341,8 +341,8 @@
                             <input type="text" class="form-control" id="companyIdQuery" placeholder="輸入統一編號">
                         </div>
                         <div class="col-md-3">
-                            <label for="unitQuery" class="form-label fw-bold">機關代碼</label>
-                            <input type="text" class="form-control" id="unitQuery" placeholder="輸入機關代碼">
+                            <label for="unitQuery" class="form-label fw-bold">搜尋機關</label>
+                            <input type="text" class="form-control" id="unitQuery" placeholder="輸入機關名稱（支援模糊）">
                         </div>
                     </div>
                     
@@ -1041,10 +1041,12 @@
             });
         }
         
-        // 根據機關代碼過濾結果（AND 邏輯用）
-        function filterByUnitId(results, unitId) {
+        // 根據機關名稱（模糊）過濾結果（AND 邏輯用）
+        function filterByUnitName(results, unitName) {
+            const q = unitName.toLowerCase();
             return results.filter(record => {
-                return record.unit_id && record.unit_id.includes(unitId);
+                const name = (record.unit_name || '').toLowerCase();
+                return name.includes(q);
             });
         }
         
@@ -1065,7 +1067,7 @@
                                 <li><strong>標案名稱：</strong>搜尋標案標題中包含的關鍵字</li>
                                 <li><strong>公司名稱：</strong>搜尋投標廠商名稱</li>
                                 <li><strong>統一編號：</strong>搜尋特定公司的統一編號</li>
-                                <li><strong>機關代碼：</strong>搜尋特定機關的標案</li>
+                                <li><strong>搜尋機關：</strong>輸入機關名稱，支援模糊搜尋</li>
                             </ul>
                         </li>
                         <li><strong>Gemini Agent 搜尋：</strong>
@@ -1211,9 +1213,11 @@
                         console.log('統一編號搜尋結果:', currentResults.length, '筆');
                         searchCount++;
                     } else if (unitQuery) {
-                        console.log('開始機關代碼搜尋:', unitQuery);
-                        currentResults = await searchAllPages('unit', unitQuery);
-                        console.log('機關代碼搜尋結果:', currentResults.length, '筆');
+                        console.log('開始機關名稱模糊搜尋（作為初始集合）:', unitQuery);
+                        // 以標題搜尋當作寬鬆入口，再以機關名稱過濾
+                        currentResults = await searchAllPages('title', unitQuery);
+                        currentResults = filterByUnitName(currentResults, unitQuery);
+                        console.log('機關名稱模糊搜尋結果:', currentResults.length, '筆');
                         searchCount++;
                     }
                     
@@ -1227,8 +1231,8 @@
                         console.log('統一編號過濾後:', currentResults.length, '筆');
                     }
                     if (unitQuery && currentResults.length > 0) {
-                        currentResults = filterByUnitId(currentResults, unitQuery);
-                        console.log('機關代碼過濾後:', currentResults.length, '筆');
+                        currentResults = filterByUnitName(currentResults, unitQuery);
+                        console.log('機關名稱過濾後:', currentResults.length, '筆');
                     }
                     
                     allResults = currentResults;
@@ -1264,12 +1268,13 @@
                         searchCount++;
                     }
                     
-                    // 根據機關代碼搜尋
+                    // 根據機關名稱搜尋（模糊）
                     if (unitQuery) {
-                        console.log('開始機關代碼搜尋:', unitQuery);
-                        const results = await searchAllPages('unit', unitQuery);
-                        console.log('機關代碼搜尋結果:', results.length, '筆');
-                        allResults = allResults.concat(results);
+                        console.log('開始機關名稱模糊搜尋:', unitQuery);
+                        const results = await searchAllPages('title', unitQuery);
+                        const filtered = filterByUnitName(results, unitQuery);
+                        console.log('機關名稱搜尋結果:', filtered.length, '筆');
+                        allResults = allResults.concat(filtered);
                         searchCount++;
                     }
                     
