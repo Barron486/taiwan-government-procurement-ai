@@ -3461,29 +3461,38 @@ ${JSON.stringify(results.slice(0, 10), null, 2)}
             ];
             item.estimatedQuantity = findFieldValue(detail, quantityKeys);
             
-            // 得標廠商原始投標金額
+            // 得標廠商原始投標金額（僅接受含數字的值）
             const originalBidKeys = [
                 `決標品項:第${itemIndex}品項:得標廠商${itemIndex}:原始投標金額`,
                 `第${itemIndex}品項:得標廠商:原始投標金額`,
-                `品項${itemIndex}:得標廠商:原始投標金額`
+                `品項${itemIndex}:得標廠商:原始投標金額`,
+                `第${itemIndex}品項:原始投標金額`,
+                `決標品項:第${itemIndex}品項:原始投標金額`,
+                `品項${itemIndex}:原始投標金額`,
+                `第${itemIndex}品項:投標金額`,
+                `品項${itemIndex}:投標金額`
             ];
-            item.originalBidAmount = findFieldValue(detail, originalBidKeys);
+            item.originalBidAmount = findAmountValue(detail, originalBidKeys);
             
-            // 決標金額
+            // 決標金額（僅接受含數字的值）
             const awardAmountKeys = [
                 `決標品項:第${itemIndex}品項:決標金額`,
                 `第${itemIndex}品項:決標金額`,
-                `品項${itemIndex}:決標金額`
+                `品項${itemIndex}:決標金額`,
+                `第${itemIndex}品項:得標金額`,
+                `品項${itemIndex}:得標金額`
             ];
-            item.awardAmount = findFieldValue(detail, awardAmountKeys);
+            item.awardAmount = findAmountValue(detail, awardAmountKeys);
             
-            // 底價金額
+            // 底價金額（僅接受含數字的值）
             const reservePriceKeys = [
                 `決標品項:第${itemIndex}品項:底價金額`,
                 `第${itemIndex}品項:底價金額`,
-                `品項${itemIndex}:底價金額`
+                `品項${itemIndex}:底價金額`,
+                `第${itemIndex}品項:底價`,
+                `品項${itemIndex}:底價`
             ];
-            item.reservePrice = findFieldValue(detail, reservePriceKeys);
+            item.reservePrice = findAmountValue(detail, reservePriceKeys);
             
             // 原產地國別
             const countryKeys = [
@@ -3515,6 +3524,40 @@ ${JSON.stringify(results.slice(0, 10), null, 2)}
                 }
             }
             
+            return '無資料';
+        }
+
+        // 解析金額：只回傳含數字的欄位，過濾「是/否/無資料」等非金額值
+        function parseAmountToText(value) {
+            if (value == null) return '';
+            const text = value.toString();
+            // 過濾常見非金額字樣
+            if (['是','否','無','無資料','不適用','N/A'].some(w => text === w || text.includes(w))) {
+                return '';
+            }
+            const match = text.match(/[\d,\.]+/);
+            if (!match) return '';
+            // 僅取整數金額（去除逗點）
+            const num = parseInt(match[0].replace(/[,\.]/g, ''));
+            if (isNaN(num) || num <= 0) return '';
+            return num.toLocaleString() + ' 元';
+        }
+
+        // 從多個鍵中找到第一個有效金額並格式化
+        function findAmountValue(detail, possibleKeys) {
+            for (const key of possibleKeys) {
+                if (detail[key] != null) {
+                    const formatted = parseAmountToText(detail[key]);
+                    if (formatted) return formatted;
+                }
+            }
+            // 嘗試模糊匹配
+            for (const key in detail) {
+                if (possibleKeys.some(possibleKey => key.includes(possibleKey.split(':').pop()))) {
+                    const formatted = parseAmountToText(detail[key]);
+                    if (formatted) return formatted;
+                }
+            }
             return '無資料';
         }
 
