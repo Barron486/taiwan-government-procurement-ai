@@ -2232,6 +2232,8 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                                             </div>
                                         </div>
                                         
+                                        ${isTenderAwarded(brief.type) ? getAwardItems(detail) : ''}
+                                        
                                         ${brief.companies?.names?.length > 0 ? `
                                             <h6 class="mt-3">相關公司</h6>
                                             <ul>
@@ -3300,6 +3302,208 @@ ${JSON.stringify(results.slice(0, 10), null, 2)}
         });
 
         // ==================== 自動監控功能結束 ====================
+
+        // 判斷是否為決標公告
+        function isTenderAwarded(type) {
+            return type && (type.includes('決標公告') || type.includes('無法決標公告'));
+        }
+
+        // 獲取決標品項資訊
+        function getAwardItems(detail) {
+            if (!detail) return '';
+            
+            console.log('=== 分析決標品項資訊 ===');
+            console.log('Detail keys:', Object.keys(detail).filter(k => k.includes('品項') || k.includes('決標') || k.includes('得標')));
+            
+            // 尋找決標品項相關欄位
+            const awardItems = [];
+            const itemCount = getAwardItemCount(detail);
+            
+            console.log('決標品項數:', itemCount);
+            
+            for (let i = 1; i <= itemCount; i++) {
+                const item = extractAwardItem(detail, i);
+                if (item) {
+                    awardItems.push(item);
+                    console.log(`第${i}品項:`, item);
+                }
+            }
+            
+            if (awardItems.length === 0) {
+                return '<p class="mt-3 text-muted">無決標品項資料</p>';
+            }
+            
+            let html = `
+                <div class="mt-3">
+                    <h6><i class="fas fa-box me-2"></i>決標品項資訊</h6>
+                    <div class="alert alert-info">
+                        <strong>決標品項數：</strong>${itemCount} 項
+                    </div>
+            `;
+            
+            awardItems.forEach((item, index) => {
+                html += `
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0"><i class="fas fa-cube me-2"></i>第${index + 1}品項</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <table class="table table-sm">
+                                        <tr><td><strong>品項名稱</strong></td><td>${item.itemName || '無資料'}</td></tr>
+                                        <tr><td><strong>是否以單價及預估需求數量之乘積決定最低標</strong></td><td>${item.isLowestBid || '無資料'}</td></tr>
+                                        <tr><td><strong>預估需求數量</strong></td><td>${item.estimatedQuantity || '無資料'}</td></tr>
+                                        <tr><td><strong>原產地國別</strong></td><td>${item.countryOfOrigin || '無資料'}</td></tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <table class="table table-sm">
+                                        <tr><td><strong>得標廠商</strong></td><td>${item.winningVendor || '無資料'}</td></tr>
+                                        <tr><td><strong>得標廠商原始投標金額</strong></td><td>${item.originalBidAmount || '無資料'}</td></tr>
+                                        <tr><td><strong>決標金額</strong></td><td>${item.awardAmount || '無資料'}</td></tr>
+                                        <tr><td><strong>底價金額</strong></td><td>${item.reservePrice || '無資料'}</td></tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            return html;
+        }
+
+        // 獲取決標品項數量
+        function getAwardItemCount(detail) {
+            const possibleKeys = [
+                '決標品項:決標品項數',
+                '決標品項數',
+                '品項數',
+                '決標:品項數'
+            ];
+            
+            for (const key of possibleKeys) {
+                if (detail[key]) {
+                    const count = parseInt(detail[key]);
+                    if (!isNaN(count) && count > 0) {
+                        return count;
+                    }
+                }
+            }
+            
+            // 如果沒找到明確的品項數，嘗試從品項名稱欄位推算
+            let maxItem = 0;
+            for (const key in detail) {
+                if (key.includes('品項名稱') || key.includes('品項') && key.includes('名稱')) {
+                    const match = key.match(/第(\d+)品項/);
+                    if (match) {
+                        const itemNum = parseInt(match[1]);
+                        if (itemNum > maxItem) {
+                            maxItem = itemNum;
+                        }
+                    }
+                }
+            }
+            
+            return maxItem > 0 ? maxItem : 1; // 預設至少1項
+        }
+
+        // 提取單一品項資訊
+        function extractAwardItem(detail, itemIndex) {
+            const item = {};
+            
+            // 品項名稱
+            const nameKeys = [
+                `決標品項:第${itemIndex}品項:品項名稱`,
+                `第${itemIndex}品項:品項名稱`,
+                `品項${itemIndex}:品項名稱`,
+                `決標品項${itemIndex}:品項名稱`
+            ];
+            item.itemName = findFieldValue(detail, nameKeys);
+            
+            // 是否以單價及預估需求數量之乘積決定最低標
+            const lowestBidKeys = [
+                `決標品項:第${itemIndex}品項:是否以單價及預估需求數量之乘積決定最低標`,
+                `第${itemIndex}品項:是否以單價及預估需求數量之乘積決定最低標`,
+                `品項${itemIndex}:是否以單價及預估需求數量之乘積決定最低標`
+            ];
+            item.isLowestBid = findFieldValue(detail, lowestBidKeys);
+            
+            // 得標廠商
+            const vendorKeys = [
+                `決標品項:第${itemIndex}品項:得標廠商${itemIndex}`,
+                `第${itemIndex}品項:得標廠商`,
+                `品項${itemIndex}:得標廠商`,
+                `得標廠商${itemIndex}:廠商名稱`
+            ];
+            item.winningVendor = findFieldValue(detail, vendorKeys);
+            
+            // 預估需求數量
+            const quantityKeys = [
+                `決標品項:第${itemIndex}品項:預估需求數量`,
+                `第${itemIndex}品項:預估需求數量`,
+                `品項${itemIndex}:預估需求數量`
+            ];
+            item.estimatedQuantity = findFieldValue(detail, quantityKeys);
+            
+            // 得標廠商原始投標金額
+            const originalBidKeys = [
+                `決標品項:第${itemIndex}品項:得標廠商${itemIndex}:原始投標金額`,
+                `第${itemIndex}品項:得標廠商:原始投標金額`,
+                `品項${itemIndex}:得標廠商:原始投標金額`
+            ];
+            item.originalBidAmount = findFieldValue(detail, originalBidKeys);
+            
+            // 決標金額
+            const awardAmountKeys = [
+                `決標品項:第${itemIndex}品項:決標金額`,
+                `第${itemIndex}品項:決標金額`,
+                `品項${itemIndex}:決標金額`
+            ];
+            item.awardAmount = findFieldValue(detail, awardAmountKeys);
+            
+            // 底價金額
+            const reservePriceKeys = [
+                `決標品項:第${itemIndex}品項:底價金額`,
+                `第${itemIndex}品項:底價金額`,
+                `品項${itemIndex}:底價金額`
+            ];
+            item.reservePrice = findFieldValue(detail, reservePriceKeys);
+            
+            // 原產地國別
+            const countryKeys = [
+                `決標品項:第${itemIndex}品項:原產地國別`,
+                `第${itemIndex}品項:原產地國別`,
+                `品項${itemIndex}:原產地國別`
+            ];
+            item.countryOfOrigin = findFieldValue(detail, countryKeys);
+            
+            // 檢查是否有任何有效資料
+            const hasData = Object.values(item).some(value => value && value !== '無資料');
+            return hasData ? item : null;
+        }
+
+        // 輔助函數：尋找欄位值
+        function findFieldValue(detail, possibleKeys) {
+            for (const key of possibleKeys) {
+                if (detail[key] && detail[key] !== '' && detail[key] !== '無資料') {
+                    return detail[key];
+                }
+            }
+            
+            // 模糊匹配
+            for (const key in detail) {
+                if (possibleKeys.some(possibleKey => key.includes(possibleKey.split(':').pop()))) {
+                    if (detail[key] && detail[key] !== '' && detail[key] !== '無資料') {
+                        return detail[key];
+                    }
+                }
+            }
+            
+            return '無資料';
+        }
 
         // 智能獲取招標資訊
         function getTenderInfo(detail, infoType) {
