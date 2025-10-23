@@ -290,9 +290,17 @@
         // 從 URL 參數獲取公司名稱和 Gemini API Key
         function getUrlParams() {
             const urlParams = new URLSearchParams(window.location.search);
+            console.log('URL 參數:', window.location.search);
+            console.log('解析的參數:', {
+                companyName: urlParams.get('companyName'),
+                company: urlParams.get('company'),
+                geminiKey: urlParams.get('geminiKey'),
+                key: urlParams.get('key')
+            });
+            
             return {
-                companyName: urlParams.get('company') || '',
-                geminiKey: urlParams.get('key') || ''
+                companyName: urlParams.get('companyName') || urlParams.get('company') || '',
+                geminiKey: urlParams.get('geminiKey') || urlParams.get('key') || ''
             };
         }
 
