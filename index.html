@@ -2074,7 +2074,7 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                         <tr><td><strong>預算金額</strong></td><td>${detail['採購資料:預算金額'] || '無資料'}</td></tr>
                     </table>
                     
-                    ${isTenderAwarded(brief.type) ? getAwardInfo(detail) : getTenderInfo(detail)}
+                    ${isTenderAwarded(brief.type, detail) ? getAwardInfo(detail) : getTenderInfo(detail)}
                     
                     <div class="mt-3">
                         <h6>重要時間提醒</h6>
@@ -2196,7 +2196,7 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                                             <tr><td><strong>預算金額</strong></td><td>${detail['採購資料:預算金額'] || '無資料'}</td></tr>
                                         </table>
                                         
-                                        ${isTenderAwarded(brief.type) ? getAwardInfo(detail) : getTenderInfo(detail)}
+                                        ${isTenderAwarded(brief.type, detail) ? getAwardInfo(detail) : getTenderInfo(detail)}
                                         
                                         <div class="mt-3">
                                             <h6>重要時間提醒</h6>
@@ -2216,7 +2216,7 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                                             </div>
                                         </div>
                                         
-                                        ${isTenderAwarded(brief.type) ? getAwardItems(detail) : ''}
+                                        ${isTenderAwarded(brief.type, detail) ? getAwardItems(detail) : ''}
                                         
                                         ${brief.companies?.names?.length > 0 ? `
                                             <h6 class="mt-3">相關公司</h6>
@@ -3287,9 +3287,20 @@ ${JSON.stringify(results.slice(0, 10), null, 2)}
 
         // ==================== 自動監控功能結束 ====================
 
-        // 判斷是否為決標公告
-        function isTenderAwarded(type) {
-            return type && (type.includes('決標公告') || type.includes('無法決標公告'));
+        // 判斷是否為決標公告（同時檢查 brief.type 與 detail 常見欄位）
+        function isTenderAwarded(type, detail = {}) {
+            const t = (type || '').toString();
+            const candidates = [
+                t,
+                detail['標案類型'],
+                detail['公告種類'],
+                detail['公告類型'],
+                detail['招標/決標類別'],
+                detail['採購資料:公告種類'],
+                detail['招標資料:公告種類'],
+                detail['決標資料:公告種類']
+            ].filter(Boolean).join(' ');
+            return candidates.includes('決標公告') || candidates.includes('無法決標公告') || candidates.includes('決標');
         }
 
         // 獲取決標品項資訊
