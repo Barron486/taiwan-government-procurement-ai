@@ -714,12 +714,43 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // 關閉非必要 console.log 以瘦身輸出（如需除錯將此設為 true）
-        const __DEBUG_LOG__ = false;
+        // 關閉非必要 console.log 以瘦身輸出（可用 URL ?debug=1 或 localStorage.debug=1 開啟）
+        let __DEBUG_LOG__ = (new URLSearchParams(location.search).get('debug') === '1') || (localStorage.getItem('debug') === '1');
         if (!__DEBUG_LOG__) {
             // 保留 console.error/console.warn，其餘一般 log 關閉
             console.log = function(){};
         }
+        // 共用欄位鍵名映射
+        const FIELD_KEYS = {
+            tender: {
+                '招標方式': ['招標資料:招標方式','招標方式','採購資料:招標方式','招標:招標方式'],
+                '決標方式': ['招標資料:決標方式','決標方式','採購資料:決標方式','決標:決標方式','決標資料:決標方式'],
+                '開標時間': ['領投開標:開標時間','開標時間','開標:開標時間','時間:開標時間'],
+                '開標地點': ['領投開標:開標地點','開標地點','開標:開標地點','地點:開標地點'],
+                '截止投標': ['領投開標:截止投標','截止投標','投標:截止投標','時間:截止投標'],
+                '押標金': ['領投開標:是否須繳納押標金:押標金額度','押標金','押標金額度','投標:押標金']
+            },
+            awardInfo: {
+                '決標日期': ['決標資料:決標日期','決標日期','決標:決標日期','日期:決標日期'],
+                '決標金額': ['決標資料:決標金額','決標金額','決標:決標金額','金額:決標金額','決標資料:總決標金額'],
+                '底價金額': ['決標資料:底價金額','底價金額','決標:底價金額','金額:底價金額'],
+                '得標廠商': ['決標資料:得標廠商','得標廠商','決標:得標廠商','廠商:得標廠商','得標廠商:廠商名稱'],
+                '決標原因': ['決標資料:決標原因','決標原因','決標:決標原因','原因:決標原因']
+            },
+            awardItemCount: ['決標品項:決標品項數','決標品項數','品項數','決標:品項數'],
+            awardItemKeysBuilder: function(index){
+                return {
+                    name: [`決標品項:第${index}品項:品項名稱`,`第${index}品項:品項名稱`,`品項${index}:品項名稱`,`決標品項${index}:品項名稱`],
+                    lowestBid: [`決標品項:第${index}品項:是否以單價及預估需求數量之乘積決定最低標`,`第${index}品項:是否以單價及預估需求數量之乘積決定最低標`,`品項${index}:是否以單價及預估需求數量之乘積決定最低標`],
+                    vendor: [`決標品項:第${index}品項:得標廠商${index}`,`第${index}品項:得標廠商`,`品項${index}:得標廠商`,`得標廠商${index}:廠商名稱`],
+                    quantity: [`決標品項:第${index}品項:預估需求數量`,`第${index}品項:預估需求數量`,`品項${index}:預估需求數量`],
+                    originalBid: [`決標品項:第${index}品項:得標廠商${index}:原始投標金額`,`第${index}品項:得標廠商:原始投標金額`,`品項${index}:得標廠商:原始投標金額`,`第${index}品項:原始投標金額`,`決標品項:第${index}品項:原始投標金額`,`品項${index}:原始投標金額`,`第${index}品項:投標金額`,`品項${index}:投標金額`],
+                    awardAmount: [`決標品項:第${index}品項:決標金額`,`第${index}品項:決標金額`,`品項${index}:決標金額`,`第${index}品項:得標金額`,`品項${index}:得標金額`],
+                    reservePrice: [`決標品項:第${index}品項:底價金額`,`第${index}品項:底價金額`,`品項${index}:底價金額`,`第${index}品項:底價`,`品項${index}:底價`],
+                    originCountry: [`決標品項:第${index}品項:原產地國別`,`第${index}品項:原產地國別`,`品項${index}:原產地國別`]
+                };
+            }
+        };
         const API_BASE = 'https://pcc-api.openfun.app/api';
         // API 配置：根據環境自動切換
         const USE_PROXY = window.API_CONFIG && window.API_CONFIG.getApiBase();
@@ -1630,13 +1661,7 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
 
         // 已移除未使用之按日期搜尋方法以瘦身
 
-        // 格式化日期為 API 格式
-        function formatDateForAPI(date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}${month}${day}`;
-        }
+        // 已移除未使用的日期格式化函式以瘦身
 
         // 顯示載入動畫
         function showLoading(show) {
@@ -3354,12 +3379,7 @@ ${JSON.stringify(results.slice(0, 10), null, 2)}
 
         // 獲取決標品項數量
         function getAwardItemCount(detail) {
-            const possibleKeys = [
-                '決標品項:決標品項數',
-                '決標品項數',
-                '品項數',
-                '決標:品項數'
-            ];
+            const possibleKeys = FIELD_KEYS.awardItemCount;
             
             for (const key of possibleKeys) {
                 if (detail[key]) {
@@ -3392,79 +3412,29 @@ ${JSON.stringify(results.slice(0, 10), null, 2)}
             const item = {};
             
             // 品項名稱
-            const nameKeys = [
-                `決標品項:第${itemIndex}品項:品項名稱`,
-                `第${itemIndex}品項:品項名稱`,
-                `品項${itemIndex}:品項名稱`,
-                `決標品項${itemIndex}:品項名稱`
-            ];
-            item.itemName = findFieldValue(detail, nameKeys);
+            const keys = FIELD_KEYS.awardItemKeysBuilder(itemIndex);
+            item.itemName = findFieldValue(detail, keys.name);
             
             // 是否以單價及預估需求數量之乘積決定最低標
-            const lowestBidKeys = [
-                `決標品項:第${itemIndex}品項:是否以單價及預估需求數量之乘積決定最低標`,
-                `第${itemIndex}品項:是否以單價及預估需求數量之乘積決定最低標`,
-                `品項${itemIndex}:是否以單價及預估需求數量之乘積決定最低標`
-            ];
-            item.isLowestBid = findFieldValue(detail, lowestBidKeys);
+            item.isLowestBid = findFieldValue(detail, keys.lowestBid);
             
             // 得標廠商
-            const vendorKeys = [
-                `決標品項:第${itemIndex}品項:得標廠商${itemIndex}`,
-                `第${itemIndex}品項:得標廠商`,
-                `品項${itemIndex}:得標廠商`,
-                `得標廠商${itemIndex}:廠商名稱`
-            ];
-            item.winningVendor = findFieldValue(detail, vendorKeys);
+            item.winningVendor = findFieldValue(detail, keys.vendor);
             
             // 預估需求數量
-            const quantityKeys = [
-                `決標品項:第${itemIndex}品項:預估需求數量`,
-                `第${itemIndex}品項:預估需求數量`,
-                `品項${itemIndex}:預估需求數量`
-            ];
-            item.estimatedQuantity = findFieldValue(detail, quantityKeys);
+            item.estimatedQuantity = findFieldValue(detail, keys.quantity);
             
             // 得標廠商原始投標金額（僅接受含數字的值）
-            const originalBidKeys = [
-                `決標品項:第${itemIndex}品項:得標廠商${itemIndex}:原始投標金額`,
-                `第${itemIndex}品項:得標廠商:原始投標金額`,
-                `品項${itemIndex}:得標廠商:原始投標金額`,
-                `第${itemIndex}品項:原始投標金額`,
-                `決標品項:第${itemIndex}品項:原始投標金額`,
-                `品項${itemIndex}:原始投標金額`,
-                `第${itemIndex}品項:投標金額`,
-                `品項${itemIndex}:投標金額`
-            ];
-            item.originalBidAmount = findAmountValue(detail, originalBidKeys);
+            item.originalBidAmount = findAmountValue(detail, keys.originalBid);
             
             // 決標金額（僅接受含數字的值）
-            const awardAmountKeys = [
-                `決標品項:第${itemIndex}品項:決標金額`,
-                `第${itemIndex}品項:決標金額`,
-                `品項${itemIndex}:決標金額`,
-                `第${itemIndex}品項:得標金額`,
-                `品項${itemIndex}:得標金額`
-            ];
-            item.awardAmount = findAmountValue(detail, awardAmountKeys);
+            item.awardAmount = findAmountValue(detail, keys.awardAmount);
             
             // 底價金額（僅接受含數字的值）
-            const reservePriceKeys = [
-                `決標品項:第${itemIndex}品項:底價金額`,
-                `第${itemIndex}品項:底價金額`,
-                `品項${itemIndex}:底價金額`,
-                `第${itemIndex}品項:底價`,
-                `品項${itemIndex}:底價`
-            ];
-            item.reservePrice = findAmountValue(detail, reservePriceKeys);
+            item.reservePrice = findAmountValue(detail, keys.reservePrice);
             
             // 原產地國別
-            const countryKeys = [
-                `決標品項:第${itemIndex}品項:原產地國別`,
-                `第${itemIndex}品項:原產地國別`,
-                `品項${itemIndex}:原產地國別`
-            ];
-            item.countryOfOrigin = findFieldValue(detail, countryKeys);
+            item.countryOfOrigin = findFieldValue(detail, keys.originCountry);
             
             // 檢查是否有任何有效資料
             const hasData = Object.values(item).some(value => value && value !== '無資料');
@@ -3566,78 +3536,7 @@ ${JSON.stringify(results.slice(0, 10), null, 2)}
         function getTenderField(detail, infoType) {
             if (!detail) return '無資料';
             
-            // 定義各種可能的欄位名稱
-            const fieldMappings = {
-                '招標方式': [
-                    '招標資料:招標方式',
-                    '招標方式',
-                    '採購資料:招標方式',
-                    '招標:招標方式'
-                ],
-                '決標方式': [
-                    '招標資料:決標方式',
-                    '決標方式',
-                    '採購資料:決標方式',
-                    '決標:決標方式',
-                    '決標資料:決標方式'
-                ],
-                '決標日期': [
-                    '決標資料:決標日期',
-                    '決標日期',
-                    '決標:決標日期',
-                    '日期:決標日期'
-                ],
-                '決標金額': [
-                    '決標資料:決標金額',
-                    '決標金額',
-                    '決標:決標金額',
-                    '金額:決標金額',
-                    '決標資料:總決標金額'
-                ],
-                '底價金額': [
-                    '決標資料:底價金額',
-                    '底價金額',
-                    '決標:底價金額',
-                    '金額:底價金額'
-                ],
-                '得標廠商': [
-                    '決標資料:得標廠商',
-                    '得標廠商',
-                    '決標:得標廠商',
-                    '廠商:得標廠商',
-                    '得標廠商:廠商名稱'
-                ],
-                '決標原因': [
-                    '決標資料:決標原因',
-                    '決標原因',
-                    '決標:決標原因',
-                    '原因:決標原因'
-                ],
-                '開標時間': [
-                    '領投開標:開標時間',
-                    '開標時間',
-                    '開標:開標時間',
-                    '時間:開標時間'
-                ],
-                '開標地點': [
-                    '領投開標:開標地點',
-                    '開標地點',
-                    '開標:開標地點',
-                    '地點:開標地點'
-                ],
-                '截止投標': [
-                    '領投開標:截止投標',
-                    '截止投標',
-                    '投標:截止投標',
-                    '時間:截止投標'
-                ],
-                '押標金': [
-                    '領投開標:是否須繳納押標金:押標金額度',
-                    '押標金',
-                    '押標金額度',
-                    '投標:押標金'
-                ]
-            };
+            const fieldMappings = { ...FIELD_KEYS.tender, ...FIELD_KEYS.awardInfo };
             
             const possibleFields = fieldMappings[infoType] || [];
             
