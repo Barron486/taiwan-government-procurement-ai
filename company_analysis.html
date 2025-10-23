@@ -704,6 +704,8 @@
             // 如果有複數廠商決標
             if (allVendors.length > 1) {
                 console.log('✓ 確認為複數廠商決標案件');
+                console.log('所有得標廠商:', allVendors);
+                console.log('目標公司得標品項:', targetCompanyAwards);
                 
                 // 計算目標公司總金額
                 let totalTargetAmount = 0;
@@ -715,12 +717,15 @@
                     console.log('✓ 目標公司總決標金額:', totalTargetAmount);
                 }
                 
-                return {
+                const result = {
                     isMultiple: true,
                     allVendors: allVendors,
                     targetCompanyAwards: targetCompanyAwards,
                     totalTargetAmount: totalTargetAmount
                 };
+                
+                console.log('hasMultipleAwardedVendors 返回結果:', result);
+                return result;
             }
             
             console.log('✗ 非複數廠商決標案件');
@@ -806,7 +811,12 @@
                                     <div class="mt-2">
                                         <div class="btn-group" role="group">
                                             ${multipleVendors && multipleVendors.targetCompanyAwards && multipleVendors.targetCompanyAwards.length > 0 ? `
-                                                <button class="btn btn-outline-warning btn-sm" type="button" onclick="showCompanyAwardDetails(${JSON.stringify(multipleVendors.targetCompanyAwards).replace(/"/g, '&quot;')}, '${(brief.title || '無標題').replace(/'/g, "\\'")}', '${jobNumber}', '${companyName || '未知公司'}')" title="查看該公司決標品項細節">
+                                                <button class="btn btn-outline-warning btn-sm" type="button" onclick="showCompanyAwardDetailsFromButton(this)" 
+                                                        data-awards='${JSON.stringify(multipleVendors.targetCompanyAwards)}'
+                                                        data-title='${(brief.title || '無標題').replace(/'/g, "\\'")}'
+                                                        data-job='${jobNumber}'
+                                                        data-company='${companyName || '未知公司'}'
+                                                        title="查看該公司決標品項細節">
                                                     <i class="fas fa-box me-1"></i>該公司決標品項
                                                 </button>
                                             ` : ''}
@@ -1195,11 +1205,59 @@
             return 'https://web.pcc.gov.tw/tps/QueryTender/query/queryTender.jsp';
         }
 
+        // 從按鈕獲取資料並顯示 Modal
+        function showCompanyAwardDetailsFromButton(button) {
+            console.log('=== showCompanyAwardDetailsFromButton 調試 ===');
+            
+            try {
+                const awardsData = button.getAttribute('data-awards');
+                const title = button.getAttribute('data-title');
+                const jobNumber = button.getAttribute('data-job');
+                const companyName = button.getAttribute('data-company');
+                
+                console.log('從按鈕獲取的資料:');
+                console.log('awardsData:', awardsData);
+                console.log('title:', title);
+                console.log('jobNumber:', jobNumber);
+                console.log('companyName:', companyName);
+                
+                if (!awardsData) {
+                    console.error('無法從按鈕獲取 awards 資料');
+                    alert('無法顯示決標品項細節：資料缺失');
+                    return;
+                }
+                
+                const companyAwards = JSON.parse(awardsData);
+                console.log('解析後的 companyAwards:', companyAwards);
+                
+                showCompanyAwardDetails(companyAwards, title, jobNumber, companyName);
+                
+            } catch (error) {
+                console.error('處理按鈕點擊時發生錯誤:', error);
+                alert('無法顯示決標品項細節：' + error.message);
+            }
+        }
+
         // 顯示特定公司決標品項細節 Modal
         function showCompanyAwardDetails(companyAwards, tenderTitle, jobNumber, companyName) {
+            console.log('=== showCompanyAwardDetails 調試 ===');
+            console.log('companyAwards:', companyAwards);
+            console.log('companyAwards 類型:', typeof companyAwards);
+            console.log('companyAwards 長度:', companyAwards ? companyAwards.length : 'undefined');
+            console.log('tenderTitle:', tenderTitle);
+            console.log('jobNumber:', jobNumber);
+            console.log('companyName:', companyName);
+            
+            if (!companyAwards || !Array.isArray(companyAwards) || companyAwards.length === 0) {
+                console.error('companyAwards 資料無效:', companyAwards);
+                alert('無法顯示決標品項細節：資料格式錯誤');
+                return;
+            }
+            
             let awardsHtml = '';
             
             companyAwards.forEach((award, index) => {
+                console.log(`處理第 ${index + 1} 個品項:`, award);
                 const formattedAmount = award.amount ? 
                     new Intl.NumberFormat('zh-TW', { 
                         style: 'currency', 
