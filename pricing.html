@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>購買點數 - 台灣政府採購 AI 分析系統</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Microsoft JhengHei', sans-serif;
+        }
+        .main-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            margin: 24px auto;
+            padding: 40px;
+            max-width: 960px;
+        }
+        .page-header { text-align: center; margin-bottom: 40px; }
+        .page-header h1 { font-size: 28px; font-weight: 700; color: #1a1a2e; }
+        .page-header p  { color: #64748b; }
+
+        /* 點數餘額卡 */
+        .balance-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white; border-radius: 16px;
+            padding: 24px 32px; margin-bottom: 36px;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 16px;
+        }
+        .balance-number { font-size: 48px; font-weight: 700; line-height: 1; }
+        .balance-label  { font-size: 14px; opacity: 0.85; margin-top: 4px; }
+
+        /* 方案卡 */
+        .pkg-card {
+            border: 2px solid #e2e8f0;
+            border-radius: 16px; padding: 28px 24px;
+            text-align: center; cursor: pointer;
+            transition: all 0.2s; height: 100%;
+            position: relative;
+        }
+        .pkg-card:hover, .pkg-card.selected {
+            border-color: #667eea;
+            box-shadow: 0 8px 24px rgba(102,126,234,0.2);
+            transform: translateY(-4px);
+        }
+        .pkg-card.popular {
+            border-color: #667eea;
+        }
+        .popular-badge {
+            position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white; padding: 4px 16px; border-radius: 20px;
+            font-size: 12px; font-weight: 600; white-space: nowrap;
+        }
+        .pkg-name    { font-size: 18px; font-weight: 700; color: #1a1a2e; margin-bottom: 8px; }
+        .pkg-credits { font-size: 42px; font-weight: 800; color: #667eea; line-height: 1; }
+        .pkg-unit    { font-size: 14px; color: #94a3b8; margin-bottom: 16px; }
+        .pkg-price   { font-size: 28px; font-weight: 700; color: #1a1a2e; }
+        .pkg-per     { font-size: 13px; color: #94a3b8; margin-top: 4px; }
+        .pkg-features { list-style: none; padding: 0; margin: 16px 0 0; text-align: left; }
+        .pkg-features li { padding: 6px 0; font-size: 14px; color: #475569; }
+        .pkg-features li i { color: #10b981; margin-right: 8px; }
+
+        .btn-buy {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white; border: none; border-radius: 10px;
+            padding: 12px 28px; font-size: 15px; font-weight: 600;
+            cursor: pointer; transition: opacity 0.2s; width: 100%; margin-top: 20px;
+        }
+        .btn-buy:hover    { opacity: 0.9; }
+        .btn-buy:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* 交易記錄 */
+        .tx-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px;
+        }
+        .tx-item:last-child { border-bottom: none; }
+        .tx-plus  { color: #10b981; font-weight: 700; }
+        .tx-minus { color: #ef4444; font-weight: 700; }
+
+        /* 通知 */
+        .notice-bar {
+            border-radius: 12px; padding: 16px 20px;
+            margin-bottom: 24px; font-size: 14px;
+        }
+        .notice-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+        .notice-info    { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+        .notice-warning { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+    </style>
+</head>
+<body>
+<div class="container-fluid px-3">
+<div class="main-container">
+
+    <!-- 頁頭 -->
+    <div class="page-header">
+        <div style="margin-bottom:12px;">
+            <a href="index.html" style="color:#64748b; font-size:14px; text-decoration:none;">
+                <i class="fas fa-arrow-left me-1"></i>返回搜尋
+            </a>
+        </div>
+        <h1><i class="fas fa-coins me-2" style="color:#667eea;"></i>購買 AI 分析點數</h1>
+        <p>點數永不過期・每次 AI 分析消耗 1 點・支援統編開立發票</p>
+    </div>
+
+    <!-- 付款成功/取消通知 -->
+    <div id="noticeSuccess" class="notice-bar notice-success" style="display:none;">
+        <i class="fas fa-check-circle me-2"></i>
+        <strong>付款成功！</strong>點數已自動加入您的帳戶，發票將寄送至您的 Email。
+    </div>
+    <div id="noticeCancelled" class="notice-bar notice-warning" style="display:none;">
+        <i class="fas fa-times-circle me-2"></i>已取消付款，如有問題請重新嘗試。
+    </div>
+
+    <!-- 未登入提示 -->
+    <div id="noticeLogin" class="notice-bar notice-info" style="display:none;">
+        <i class="fas fa-info-circle me-2"></i>
+        請先 <a href="login.html?redirect=pricing.html" style="color:#1d4ed8; font-weight:600;">登入或註冊</a>
+        才能購買點數。新用戶免費獲得 3 次 AI 分析！
+    </div>
+
+    <!-- 點數餘額 -->
+    <div class="balance-card" id="balanceCard" style="display:none;">
+        <div>
+            <div class="balance-label">目前剩餘點數</div>
+            <div class="balance-number" id="balanceNumber">—</div>
+            <div class="balance-label">次 AI 分析</div>
+        </div>
+        <div style="text-align:right;">
+            <div style="font-size:13px; opacity:0.8;" id="balanceStats"></div>
+            <div style="font-size:13px; opacity:0.8; margin-top:4px;" id="userEmail"></div>
+            <button onclick="handleLogout()" style="background:rgba(255,255,255,0.2); border:none; color:white; padding:6px 14px; border-radius:8px; margin-top:8px; font-size:13px; cursor:pointer;">
+                <i class="fas fa-sign-out-alt me-1"></i>登出
+            </button>
+        </div>
+    </div>
+
+    <!-- 方案選擇 -->
+    <div class="row g-4 mb-4" id="packagesSection">
+        <!-- 基本包 -->
+        <div class="col-md-4">
+            <div class="pkg-card" onclick="selectPackage('credits_10', this)">
+                <div class="pkg-name">基本包</div>
+                <div class="pkg-credits">10</div>
+                <div class="pkg-unit">次 AI 分析</div>
+                <div class="pkg-price">NT$ 150</div>
+                <div class="pkg-per">NT$15 / 次</div>
+                <ul class="pkg-features">
+                    <li><i class="fas fa-check"></i>Claude / Gemini / ChatGPT</li>
+                    <li><i class="fas fa-check"></i>公司得標分析</li>
+                    <li><i class="fas fa-check"></i>點數永不過期</li>
+                    <li><i class="fas fa-check"></i>自動發送收據</li>
+                </ul>
+                <button class="btn-buy" id="buyBtn_credits_10" onclick="event.stopPropagation(); buyPackage('credits_10')">
+                    <i class="fas fa-shopping-cart me-2"></i>立即購買
+                </button>
+            </div>
+        </div>
+
+        <!-- 標準包（推薦） -->
+        <div class="col-md-4">
+            <div class="pkg-card popular" onclick="selectPackage('credits_30', this)">
+                <div class="popular-badge">⭐ 最受歡迎</div>
+                <div class="pkg-name">標準包</div>
+                <div class="pkg-credits">30</div>
+                <div class="pkg-unit">次 AI 分析</div>
+                <div class="pkg-price">NT$ 399</div>
+                <div class="pkg-per">NT$13.3 / 次，省 11%</div>
+                <ul class="pkg-features">
+                    <li><i class="fas fa-check"></i>Claude / Gemini / ChatGPT</li>
+                    <li><i class="fas fa-check"></i>公司得標分析</li>
+                    <li><i class="fas fa-check"></i>點數永不過期</li>
+                    <li><i class="fas fa-check"></i>可輸入統編開立發票</li>
+                </ul>
+                <button class="btn-buy" id="buyBtn_credits_30" onclick="event.stopPropagation(); buyPackage('credits_30')">
+                    <i class="fas fa-shopping-cart me-2"></i>立即購買
+                </button>
+            </div>
+        </div>
+
+        <!-- 超值包 -->
+        <div class="col-md-4">
+            <div class="pkg-card" onclick="selectPackage('credits_100', this)">
+                <div class="pkg-name">超值包</div>
+                <div class="pkg-credits">100</div>
+                <div class="pkg-unit">次 AI 分析</div>
+                <div class="pkg-price">NT$ 999</div>
+                <div class="pkg-per">NT$9.9 / 次，省 34%</div>
+                <ul class="pkg-features">
+                    <li><i class="fas fa-check"></i>Claude / Gemini / ChatGPT</li>
+                    <li><i class="fas fa-check"></i>公司得標分析</li>
+                    <li><i class="fas fa-check"></i>點數永不過期</li>
+                    <li><i class="fas fa-check"></i>可輸入統編開立發票</li>
+                </ul>
+                <button class="btn-buy" id="buyBtn_credits_100" onclick="event.stopPropagation(); buyPackage('credits_100')">
+                    <i class="fas fa-shopping-cart me-2"></i>立即購買
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 說明 -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div style="background:#f8fafc; border-radius:12px; padding:20px; height:100%;">
+                <div style="font-size:24px; margin-bottom:8px;">🔒</div>
+                <div style="font-weight:600; margin-bottom:6px;">安全付款</div>
+                <div style="font-size:14px; color:#64748b;">透過 Stripe 國際支付，支援 Visa / Mastercard，全程 SSL 加密</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div style="background:#f8fafc; border-radius:12px; padding:20px; height:100%;">
+                <div style="font-size:24px; margin-bottom:8px;">🧾</div>
+                <div style="font-weight:600; margin-bottom:6px;">自動開立發票</div>
+                <div style="font-size:14px; color:#64748b;">付款完成後自動寄送 PDF 發票至 Email，可填入公司統編</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div style="background:#f8fafc; border-radius:12px; padding:20px; height:100%;">
+                <div style="font-size:24px; margin-bottom:8px;">♾️</div>
+                <div style="font-weight:600; margin-bottom:6px;">點數永不過期</div>
+                <div style="font-size:14px; color:#64748b;">購買的點數無使用期限，可依需求彈性使用</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 交易記錄 -->
+    <div id="txSection" style="display:none;">
+        <h5 style="font-weight:700; margin-bottom:16px;"><i class="fas fa-history me-2" style="color:#667eea;"></i>點數異動記錄</h5>
+        <div id="txList" style="background:#f8fafc; border-radius:12px; padding:16px;">
+            <div style="text-align:center; color:#94a3b8; padding:20px;">載入中...</div>
+        </div>
+    </div>
+
+</div>
+</div>
+
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+    // ── Supabase 初始化（從 config.js 取得）──
+    const SB_URL  = window.SUPABASE_URL  || '';
+    const SB_ANON = window.SUPABASE_ANON_KEY || '';
+    let sbClient  = null;
+    let currentUser = null;
+    let accessToken = null;
+
+    if (SB_URL && SB_ANON) {
+        sbClient = supabase.createClient(SB_URL, SB_ANON);
+    }
+
+    // ── 初始化 ──
+    (async () => {
+        // 處理 URL 狀態參數
+        const params = new URLSearchParams(location.search);
+        if (params.get('success') === '1') {
+            document.getElementById('noticeSuccess').style.display = 'block';
+            // 更新 URL 避免重複通知
+            history.replaceState({}, '', 'pricing.html');
+        }
+        if (params.get('cancelled') === '1') {
+            document.getElementById('noticeCancelled').style.display = 'block';
+            history.replaceState({}, '', 'pricing.html');
+        }
+
+        if (!sbClient) {
+            document.getElementById('noticeLogin').style.display = 'block';
+            return;
+        }
+
+        const { data: { session } } = await sbClient.auth.getSession();
+        if (!session) {
+            document.getElementById('noticeLogin').style.display = 'block';
+            setButtonsDisabled(true);
+            return;
+        }
+
+        currentUser = session.user;
+        accessToken = session.access_token;
+        await loadUserData();
+    })();
+
+    async function loadUserData() {
+        try {
+            const res = await fetch('/api/credits', {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            const credits = await res.json();
+
+            document.getElementById('balanceCard').style.display = 'flex';
+            document.getElementById('balanceNumber').textContent = credits.balance ?? 0;
+            document.getElementById('userEmail').textContent = currentUser.email;
+            document.getElementById('balanceStats').textContent =
+                `累計購買 ${credits.total_purchased ?? 0} 點 · 已使用 ${credits.total_used ?? 0} 點`;
+
+            await loadTransactions();
+        } catch (e) {
+            console.error('載入點數失敗:', e);
+        }
+    }
+
+    async function loadTransactions() {
+        if (!sbClient) return;
+        const { data, error } = await sbClient
+            .from('credit_transactions')
+            .select('type, amount, balance_after, description, created_at')
+            .order('created_at', { ascending: false })
+            .limit(20);
+
+        if (error || !data?.length) return;
+
+        document.getElementById('txSection').style.display = 'block';
+        const typeLabel = { purchase: '購買', usage: '使用', bonus: '贈送', refund: '退款' };
+        const typeIcon  = { purchase: '💳', usage: '🤖', bonus: '🎁', refund: '↩️' };
+
+        document.getElementById('txList').innerHTML = data.map(tx => `
+            <div class="tx-item">
+                <div>
+                    <span style="margin-right:8px;">${typeIcon[tx.type] || '•'}</span>
+                    <span>${tx.description || typeLabel[tx.type]}</span>
+                    <div style="font-size:12px; color:#94a3b8; margin-left:24px;">
+                        ${new Date(tx.created_at).toLocaleString('zh-TW')}
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <div class="${tx.amount > 0 ? 'tx-plus' : 'tx-minus'}">
+                        ${tx.amount > 0 ? '+' : ''}${tx.amount} 點
+                    </div>
+                    <div style="font-size:12px; color:#94a3b8;">餘額 ${tx.balance_after}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function selectPackage(pkgId, el) {
+        document.querySelectorAll('.pkg-card').forEach(c => c.classList.remove('selected'));
+        el.classList.add('selected');
+    }
+
+    async function buyPackage(packageId) {
+        if (!currentUser) {
+            location.href = 'login.html?redirect=pricing.html';
+            return;
+        }
+
+        const btn = document.getElementById(`buyBtn_${packageId}`);
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>處理中...';
+
+        try {
+            const res = await fetch('/api/checkout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                body: JSON.stringify({ packageId })
+            });
+            const data = await res.json();
+
+            if (data.url) {
+                location.href = data.url;
+            } else {
+                alert(data.error || '建立付款頁面失敗');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-shopping-cart me-2"></i>立即購買';
+            }
+        } catch (e) {
+            alert('連線失敗，請稍後再試');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-shopping-cart me-2"></i>立即購買';
+        }
+    }
+
+    function setButtonsDisabled(disabled) {
+        document.querySelectorAll('.btn-buy').forEach(btn => {
+            btn.disabled = disabled;
+            if (disabled) btn.textContent = '請先登入';
+        });
+    }
+
+    async function handleLogout() {
+        if (sbClient) await sbClient.auth.signOut();
+        location.href = 'login.html';
+    }
+</script>
+</body>
+</html>

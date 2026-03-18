@@ -38,3 +38,8 @@ const API_CONFIG = {
 // 導出配置
 window.API_CONFIG = API_CONFIG;
 
+// ── Supabase 公開設定（部署後請替換為實際值）──
+// 取得方式：Supabase Dashboard → Project Settings → API
+window.SUPABASE_URL      = 'YOUR_SUPABASE_URL';       // 例: https://xxxx.supabase.co
+window.SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';  // 例: eyJh...
+

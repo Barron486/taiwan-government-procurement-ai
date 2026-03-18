@@ -89,6 +89,21 @@
     </style>
 </head>
 <body>
+    <!-- Auth 工具列 -->
+    <div id="authBar" style="background:#1a1a2e; color:white; padding:8px 20px; font-size:13px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+        <a href="index.html" style="color:#94a3b8; text-decoration:none;"><i class="fas fa-arrow-left me-1"></i>返回搜尋</a>
+        <div id="authBarLoggedOut" style="display:none;">
+            <a href="login.html?redirect=pricing.html" style="color:#818cf8; font-weight:600;"><i class="fas fa-sign-in-alt me-1"></i>登入 / 購買點數</a>
+        </div>
+        <div id="authBarLoggedIn" style="display:none; align-items:center; gap:14px;">
+            <span style="color:#94a3b8;" id="authBarEmail"></span>
+            <span style="background:#312e81; padding:4px 12px; border-radius:20px; color:#a5b4fc; font-weight:600;">
+                <i class="fas fa-coins me-1"></i>剩餘 <span id="authBarCredits">…</span> 點
+            </span>
+            <a href="pricing.html" style="color:#818cf8; font-weight:600;">購買點數</a>
+        </div>
+    </div>
+
     <div class="container-fluid">
         <div class="main-container">
             <!-- 公司標題區域 -->
@@ -195,6 +210,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script>
         // 關閉非必要 console.log 以瘦身輸出（如需除錯將此設為 true）
         const __DEBUG_LOG__ = false;
@@ -317,6 +333,26 @@
 
         // 統一 AI 呼叫函式
         async function callAI(prompt) {
+            // 無自帶 key → 走 server-side 點數模式
+            if (!aiKey) {
+                if (!window._sbSession) throw new Error('請先設定 AI API Key，或登入後使用系統點數');
+                const resp = await fetch('/api/ai', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${window._sbSession.access_token}` },
+                    body: JSON.stringify({ prompt, provider: aiProvider })
+                });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    if (data.code === 'INSUFFICIENT_CREDITS') throw new Error('點數不足，請前往購買點數頁補充');
+                    throw new Error(data.error || `AI 錯誤 ${resp.status}`);
+                }
+                if (typeof data.creditsRemaining === 'number') {
+                    window._sbCredits = data.creditsRemaining;
+                    const el = document.getElementById('authBarCredits');
+                    if (el) el.textContent = data.creditsRemaining;
+                }
+                return data.result;
+            }
             if (aiProvider === 'claude') {
                 const resp = await fetch('https://api.anthropic.com/v1/messages', {
                     method: 'POST',
@@ -369,13 +405,8 @@
                 return;
             }
 
-            if (!params.key) {
-                showError('未提供 AI API Key');
-                return;
-            }
-
-            aiKey = params.key;
-            aiProvider = params.provider;
+            aiKey      = params.key || null;   // 可能為空（用點數模式）
+            aiProvider = params.provider || 'claude';
             geminiKey = aiKey; // 向後相容
             document.getElementById('companyName').textContent = companyName;
             
@@ -2013,8 +2044,41 @@ ${govUrl}
         }
 
 
-        // 頁面載入完成後初始化
-        document.addEventListener('DOMContentLoaded', initPage);
+        // 頁面載入完成後初始化（等 Supabase auth 完成再跑）
+        document.addEventListener('DOMContentLoaded', async () => {
+            await window._sbAuthReady;
+            initPage();
+        });
+    </script>
+
+    <!-- Supabase Auth 初始化 -->
+    <script>
+    window._sbSession = null;
+    window._sbCredits = 0;
+    window._sbAuthReady = (async () => {
+        const sbUrl  = window.SUPABASE_URL  || '';
+        const sbAnon = window.SUPABASE_ANON_KEY || '';
+        if (!sbUrl || !sbAnon) {
+            document.getElementById('authBarLoggedOut').style.display = 'block';
+            return;
+        }
+        const sbClient = supabase.createClient(sbUrl, sbAnon);
+        const { data: { session } } = await sbClient.auth.getSession();
+        if (!session) {
+            document.getElementById('authBarLoggedOut').style.display = 'block';
+            return;
+        }
+        window._sbSession = session;
+        window._sbClient  = sbClient;
+        document.getElementById('authBarLoggedIn').style.display = 'flex';
+        document.getElementById('authBarEmail').textContent = session.user.email;
+        try {
+            const r = await fetch('/api/credits', { headers: { 'Authorization': `Bearer ${session.access_token}` } });
+            const credits = await r.json();
+            window._sbCredits = credits.balance ?? 0;
+            document.getElementById('authBarCredits').textContent = window._sbCredits;
+        } catch (e) { /* 靜默失敗 */ }
+    })();
     </script>
 </body>
 </html>

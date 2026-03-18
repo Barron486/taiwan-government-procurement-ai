@@ -2,27 +2,19 @@
   "version": 2,
   "name": "taiwan-government-procurement-ai",
   "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/proxy"
-    }
+    { "source": "/api/ai",       "destination": "/api/ai" },
+    { "source": "/api/checkout", "destination": "/api/checkout" },
+    { "source": "/api/webhook",  "destination": "/api/webhook" },
+    { "source": "/api/credits",  "destination": "/api/credits" },
+    { "source": "/api/(.*)",     "destination": "/api/proxy" }
   ],
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, OPTIONS"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type"
-        }
+        { "key": "Access-Control-Allow-Origin",  "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
       ]
     }
   ]

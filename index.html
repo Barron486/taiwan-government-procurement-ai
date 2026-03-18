@@ -7,6 +7,8 @@
     
     <!-- API 配置 - 必須在其他 script 之前載入 -->
     <script src="config.js"></script>
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -314,6 +316,23 @@
     </style>
 </head>
 <body>
+    <!-- Auth 工具列 -->
+    <div id="authBar" style="background:#1a1a2e; color:white; padding:8px 20px; font-size:13px; display:flex; align-items:center; justify-content:flex-end; gap:16px; flex-wrap:wrap;">
+        <div id="authBarLoggedOut" style="display:none;">
+            <i class="fas fa-info-circle me-1" style="color:#a5b4fc;"></i>
+            <span style="color:#cbd5e1;">登入後可用系統點數進行 AI 分析，新用戶免費獲得 3 次</span>
+            <a href="login.html" style="color:#818cf8; margin-left:12px; font-weight:600;">登入 / 註冊</a>
+        </div>
+        <div id="authBarLoggedIn" style="display:none; align-items:center; gap:14px;">
+            <span style="color:#94a3b8;" id="authBarEmail"></span>
+            <span style="background:#312e81; padding:4px 12px; border-radius:20px; color:#a5b4fc; font-weight:600;">
+                <i class="fas fa-coins me-1"></i>剩餘 <span id="authBarCredits">…</span> 點
+            </span>
+            <a href="pricing.html" style="color:#818cf8; font-weight:600;">購買點數</a>
+            <a href="#" onclick="authBarLogout()" style="color:#94a3b8;">登出</a>
+        </div>
+    </div>
+
     <div class="main-container">
         <!-- Header -->
         <div class="header">
@@ -1257,12 +1276,16 @@
 
         function updateAiAgentBtn() {
             const btn = document.getElementById('aiAgentBtn');
-            if (getActiveAiKey()) {
+            const hasKey     = !!getActiveAiKey();
+            const hasCredits = window._sbCredits > 0;
+            if (hasKey || hasCredits) {
                 btn.disabled = false;
                 btn.className = 'btn btn-success btn-lg me-3';
+                btn.title = hasKey ? '使用自帶 API Key' : `使用系統點數（剩餘 ${window._sbCredits} 點）`;
             } else {
                 btn.disabled = true;
                 btn.className = 'btn btn-secondary btn-lg me-3';
+                btn.title = '請設定 API Key 或登入以使用點數';
             }
         }
 
@@ -1270,7 +1293,30 @@
         async function callAI(prompt) {
             const provider = getAiProvider();
             const key = getActiveAiKey();
-            if (!key) throw new Error('請先設定 AI API Key');
+
+            // 若沒有自帶 Key，嘗試用登入點數走 server-side
+            if (!key) {
+                if (!window._sbSession) throw new Error('請先設定 AI API Key，或登入後使用系統點數');
+                const token = window._sbSession.access_token;
+                const resp = await fetch('/api/ai', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ prompt, provider })
+                });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    if (data.code === 'INSUFFICIENT_CREDITS') {
+                        throw new Error('點數不足，請前往<a href="pricing.html">購買點數</a>');
+                    }
+                    throw new Error(data.error || `AI 錯誤 ${resp.status}`);
+                }
+                // 更新工具列點數
+                if (typeof data.creditsRemaining === 'number') {
+                    const el = document.getElementById('authBarCredits');
+                    if (el) el.textContent = data.creditsRemaining;
+                }
+                return data.result;
+            }
 
             if (provider === 'claude') {
                 const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -3961,6 +4007,59 @@ ${JSON.stringify(results.slice(0, 10), null, 2)}
             
             return '無資料';
         }
+    </script>
+
+    <!-- Supabase Auth 初始化 -->
+    <script>
+    window._sbSession  = null;
+    window._sbCredits  = 0;
+
+    (async () => {
+        const sbUrl  = window.SUPABASE_URL  || '';
+        const sbAnon = window.SUPABASE_ANON_KEY || '';
+        if (!sbUrl || !sbAnon) {
+            // Supabase 未設定：只顯示「登出」狀態（自帶 key 仍可用）
+            document.getElementById('authBarLoggedOut').style.display = 'block';
+            return;
+        }
+
+        const sbClient = supabase.createClient(sbUrl, sbAnon);
+        const { data: { session } } = await sbClient.auth.getSession();
+
+        if (!session) {
+            document.getElementById('authBarLoggedOut').style.display = 'block';
+            return;
+        }
+
+        window._sbSession = session;
+        document.getElementById('authBarLoggedIn').style.display  = 'flex';
+        document.getElementById('authBarEmail').textContent = session.user.email;
+
+        // 取得點數
+        try {
+            const r = await fetch('/api/credits', {
+                headers: { 'Authorization': `Bearer ${session.access_token}` }
+            });
+            const credits = await r.json();
+            window._sbCredits = credits.balance ?? 0;
+            document.getElementById('authBarCredits').textContent = window._sbCredits;
+        } catch (e) { /* 靜默失敗 */ }
+
+        updateAiAgentBtn();
+
+        // 監聽 session 變化
+        sbClient.auth.onAuthStateChange((_event, newSession) => {
+            window._sbSession = newSession;
+            if (!newSession) location.reload();
+        });
+
+        window._sbClient = sbClient;
+    })();
+
+    async function authBarLogout() {
+        if (window._sbClient) await window._sbClient.auth.signOut();
+        location.reload();
+    }
     </script>
 </body>
 </html>
