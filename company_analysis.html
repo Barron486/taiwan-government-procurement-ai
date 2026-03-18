@@ -103,7 +103,7 @@
                 <div class="spinner-border text-primary" role="status">
                     <span class="visually-hidden">載入中...</span>
                 </div>
-                <p class="mt-3 mb-0"><i class="fas fa-robot me-2"></i>Gemini AI 正在分析公司得標資料...</p>
+                <p class="mt-3 mb-0"><i class="fas fa-database me-2"></i>正在載入得標資料...</p>
             </div>
 
             <!-- 分析結果區域 -->
@@ -160,13 +160,11 @@
                 <div class="card analysis-card">
                     <div class="card-header" style="background: linear-gradient(135deg, #0066cc 0%, #003d7a 100%); color: white;">
                         <h5><i class="fas fa-chart-line me-2"></i>AI 市場分析報告</h5>
-                        <small>Powered by Gemini AI</small>
+                        <small>Powered by AI</small>
                     </div>
                     <div class="card-body">
                         <div id="geminiAnalysis" class="analysis-result">
-                            <div class="text-center">
-                                <i class="fas fa-spinner fa-spin me-2"></i>正在進行 AI 分析...
-                            </div>
+                            <!-- AI 分析完成後才填入 -->
                         </div>
                     </div>
                 </div>
@@ -883,43 +881,24 @@
                 // 檢測是否有複數廠商決標
                 const multipleVendors = hasMultipleAwardedVendors(detail, companyName);
                 
-                // 計算決標金額
+                // 計算決標金額（使用統一金額提取函數）
+                const rawAmount = extractCompanyAmount(record, companyName);
                 let tenderAmount = '金額未知';
                 let amountClass = 'text-muted';
-                
-                // 如果是複數廠商決標且該公司有得標
-                if (multipleVendors && multipleVendors.targetCompanyAwards && multipleVendors.targetCompanyAwards.length > 0) {
-                    const totalAmount = multipleVendors.targetCompanyAwards.reduce((sum, award) => {
-                        const amt = parseFloat(award.amount?.replace(/[^\d.-]/g, '') || 0);
-                        return sum + amt;
-                    }, 0);
-                    
-                    if (totalAmount > 0) {
-                        tenderAmount = new Intl.NumberFormat('zh-TW', {
-                            style: 'currency',
-                            currency: 'TWD',
-                            minimumFractionDigits: 0,
-                            maximumFractionDigits: 0
-                        }).format(totalAmount);
-                        amountClass = 'text-success fw-bold';
-                    }
-                }
-                // 單一廠商決標
-                else if (detail['決標資料:總決標金額']) {
-                    tenderAmount = detail['決標資料:總決標金額'];
-                    amountClass = 'text-success fw-bold';
-                } else if (detail['投標廠商:投標廠商1:決標金額']) {
-                    tenderAmount = detail['投標廠商:投標廠商1:決標金額'];
-                    amountClass = 'text-success fw-bold';
-                } else if (detail['採購資料:決標金額']) {
-                    tenderAmount = detail['採購資料:決標金額'];
+                if (rawAmount > 0) {
+                    tenderAmount = new Intl.NumberFormat('zh-TW', {
+                        style: 'currency',
+                        currency: 'TWD',
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0
+                    }).format(rawAmount);
                     amountClass = 'text-success fw-bold';
                 } else if (detail['採購資料:預算金額']) {
-                    tenderAmount = detail['採購資料:預算金額'];
-                    amountClass = 'text-info';
-                } else if (brief.amount) {
-                    tenderAmount = brief.amount;
-                    amountClass = 'text-muted';
+                    const budgetNum = parseInt(String(detail['採購資料:預算金額']).replace(/[^0-9]/g, ''));
+                    if (budgetNum > 0) {
+                        tenderAmount = new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(budgetNum) + '（預算）';
+                        amountClass = 'text-info';
+                    }
                 }
                 
                 return `

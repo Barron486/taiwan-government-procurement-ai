@@ -459,8 +459,11 @@
                     <div class="row">
                         <div class="col-12 d-flex justify-content-between align-items-center">
                             <div>
-                                <button type="button" class="btn btn-primary btn-lg me-3" onclick="performSearch()">
+                                <button type="button" class="btn btn-primary btn-lg me-3" onclick="performSearch()" id="searchBtn">
                                     <i class="fas fa-search me-2"></i>搜尋標案
+                                </button>
+                                <button type="button" class="btn btn-danger btn-lg me-3" onclick="cancelSearch()" id="cancelSearchBtn" style="display:none;">
+                                    <i class="fas fa-stop me-2"></i>中斷搜尋
                                 </button>
                                 <button type="button" class="btn btn-success btn-lg me-3" onclick="performAiAgentSearch()" id="aiAgentBtn" disabled>
                                     <i class="fas fa-robot me-2"></i>AI Agent 搜尋
@@ -673,6 +676,9 @@
                                     
                                     <input type="radio" class="btn-check" name="resultFilter" id="filterAward" value="award">
                                     <label class="btn btn-outline-danger" for="filterAward">決標</label>
+
+                                    <input type="radio" class="btn-check" name="resultFilter" id="filterFailed" value="failed">
+                                    <label class="btn btn-outline-warning" for="filterFailed">無法決標</label>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -869,6 +875,16 @@
             throw new Error(errorMessage);
         }
         
+        // 搜尋中斷控制
+        window.searchShouldStop = false;
+        function cancelSearch() {
+            window.searchShouldStop = true;
+        }
+        function setSearchRunning(running) {
+            document.getElementById('searchBtn').style.display = running ? 'none' : '';
+            document.getElementById('cancelSearchBtn').style.display = running ? '' : 'none';
+        }
+
         // 從路徑中提取參數
         function extractParams(path) {
             const params = {};
@@ -1053,20 +1069,21 @@
                 const type = record.brief?.type || '';
                 
                 if (tenderType === 'open') {
-                    // 開標：包含「公開招標」、「公開取得」等招標階段
-                    return type.includes('公開招標') || 
-                           type.includes('公開取得') || 
+                    return type.includes('公開招標') ||
+                           type.includes('公開取得') ||
                            type.includes('公開徵求') ||
                            type.includes('限制性招標') ||
                            type.includes('選擇性招標') ||
                            type.includes('招標公告');
                 } else if (tenderType === 'award') {
-                    // 決標：包含「決標」、「得標」等決標階段
-                    return type.includes('決標') || 
+                    // 決標（排除無法決標）
+                    if (type.includes('無法決標')) return false;
+                    return type.includes('決標') ||
                            type.includes('得標') ||
                            type.includes('定期契約') ||
-                           type.includes('開口合約') ||
-                           type.includes('無法決標');
+                           type.includes('開口合約');
+                } else if (tenderType === 'failed') {
+                    return type.includes('無法決標');
                 }
                 
                 return true;
@@ -1367,9 +1384,11 @@
                 return;
             }
             
+            window.searchShouldStop = false;
+            setSearchRunning(true);
             showLoading(true);
             hideMessage();
-            
+
             try {
                 let allResults = [];
                 let searchCount = 0;
@@ -1496,10 +1515,16 @@
                 }
                 
             } catch (error) {
-                console.error('搜尋錯誤:', error);
-                showMessage(`搜尋時發生錯誤：${error.message}`, 'error');
+                if (window.searchShouldStop) {
+                    showMessage('搜尋已中斷', 'warning');
+                } else {
+                    console.error('搜尋錯誤:', error);
+                    showMessage(`搜尋時發生錯誤：${error.message}`, 'error');
+                }
             } finally {
                 showLoading(false);
+                setSearchRunning(false);
+                window.searchShouldStop = false;
             }
         }
 
@@ -1513,6 +1538,8 @@
                 showMessage('請先設定 AI API Key 才能使用 Agent 搜尋功能', 'error');
                 return;
             }
+            window.searchShouldStop = false;
+            setSearchRunning(true);
 
             const titleQuery = document.getElementById('titleQuery').value.trim();
             if (!titleQuery) {
@@ -1682,6 +1709,8 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                 showMessage(`AI Agent 搜尋失敗：${error.message}`, 'error');
             } finally {
                 showLoading(false);
+                setSearchRunning(false);
+                window.searchShouldStop = false;
             }
         }
 
@@ -1747,6 +1776,7 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
             console.log(`開始搜尋 ${searchType}: ${query}`);
             
             while (hasMorePages && page <= maxPages) {
+                if (window.searchShouldStop) break;
                 try {
                     console.log(`搜尋第 ${page} 頁...`);
                     const results = await searchAllData(searchType, query, page);
@@ -1946,11 +1976,38 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
         }
 
         // 將結果轉為匯出用的 row 陣列
+        function extractAwardAmount(r) {
+            const detail = r.detail || {};
+            const brief = r.brief || {};
+            const keys = [
+                '決標資料:總決標金額',
+                '決標資料:決標金額',
+                '投標廠商:投標廠商1:決標金額',
+                '得標廠商:決標金額',
+                '採購資料:決標金額',
+                '決標資料:決標廠商1:決標金額'
+            ];
+            for (const k of keys) {
+                if (detail[k]) {
+                    const n = parseInt(String(detail[k]).replace(/[^0-9]/g, ''));
+                    if (n > 0) return n;
+                }
+            }
+            if (brief.amount) {
+                const n = parseInt(String(brief.amount).replace(/[^0-9]/g, ''));
+                if (n > 0) return n;
+            }
+            return '';
+        }
+
         function resultsToRows(results) {
             return results.map(r => {
                 const brief = r.brief || {};
+                const detail = r.detail || {};
                 const companies = brief.companies || {};
                 const vendorNames = Array.isArray(companies.names) ? companies.names.join('、') : (companies.names || '');
+                const vendor1 = detail['投標廠商:投標廠商1:廠商名稱'] || detail['得標廠商:廠商名稱'] || '';
+                const finalVendors = vendor1 || vendorNames;
                 return {
                     '日期': r.date || '',
                     '標案名稱': brief.title || '',
@@ -1958,8 +2015,8 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                     '機關名稱': r.unit_name || '',
                     '機關代碼': r.unit_id || '',
                     '案件編號': r.job_number || '',
-                    '得標廠商': vendorNames,
-                    '決標金額': brief.total_amount || brief.amount || ''
+                    '得標廠商': finalVendors,
+                    '決標金額': extractAwardAmount(r)
                 };
             });
         }
