@@ -880,7 +880,13 @@
                 
                 // 檢測是否有複數廠商決標
                 const multipleVendors = hasMultipleAwardedVendors(detail, companyName);
-                
+
+                // 偵測非單一品項
+                const itemCountRaw = detail['決標品項:決標品項數'] || detail['決標品項數'] || '';
+                const itemCount = parseInt(itemCountRaw) || 0;
+                const hasMultipleItems = itemCount > 1 ||
+                    Object.keys(detail).some(k => /決標品項:第[2-9]/.test(k));
+
                 // 計算決標金額（使用統一金額提取函數）
                 const rawAmount = extractCompanyAmount(record, companyName);
                 let tenderAmount = '金額未知';
@@ -942,6 +948,7 @@
                                 </div>
                                 <div class="col-md-4 text-end">
                                     <span class="badge ${brief.type && brief.type.includes('決標') ? 'bg-danger' : 'bg-primary'} mb-2">${brief.type || '未知類型'}</span>
+                                    ${hasMultipleItems ? `<span class="badge bg-warning text-dark mb-2 ms-1" title="此標案含多個得標品項，金額統計可能包含非本公司品項，請點擊「該公司決標品項」確認實際得標內容"><i class="fas fa-exclamation-triangle me-1"></i>多品項・請確認</span>` : ''}
                                     <div class="${amountClass}">
                                         ${tenderAmount}
                                     </div>
@@ -1656,6 +1663,23 @@
                         }
                     }
                     
+                    // 偵測多品項
+                    const itemCountRaw2 = detail['決標品項:決標品項數'] || detail['決標品項數'] || '';
+                    const itemCount2 = parseInt(itemCountRaw2) || 0;
+                    const isMultiItem = itemCount2 > 1 || Object.keys(detail).some(k => /決標品項:第[2-9]/.test(k));
+
+                    // 若多品項，提取各品項詳細資訊
+                    let itemDetails = [];
+                    if (isMultiItem) {
+                        for (let i = 1; i <= Math.max(itemCount2, 9); i++) {
+                            const itemName = detail[`決標品項:第${i}品項:品項名稱`] || detail[`第${i}品項:品項名稱`];
+                            if (!itemName) break;
+                            const itemAmount = detail[`決標品項:第${i}品項:決標金額`] || detail[`第${i}品項:決標金額`] || '';
+                            const itemVendor = detail[`決標品項:第${i}品項:得標廠商${i}`] || detail[`第${i}品項:得標廠商`] || '';
+                            itemDetails.push({ 品項: i, 品項名稱: itemName, 得標廠商: itemVendor, 金額: itemAmount });
+                        }
+                    }
+
                     return {
                         標案名稱: record.brief?.title || '未知',
                         案號: record.job_number,
@@ -1667,8 +1691,9 @@
                         金額來源: amountSource,
                         決標廠商: detail['投標廠商:投標廠商1:廠商名稱'] || companyName,
                         相關公司: record.brief?.companies?.names || [],
-                        // 保留完整 detail 以供深入分析
-                        detail: detail
+                        有多品項: isMultiItem,
+                        品項數: isMultiItem ? itemCount2 || '未知' : 1,
+                        品項明細: isMultiItem ? itemDetails : undefined
                     };
                 });
                 
@@ -1737,14 +1762,27 @@ ${JSON.stringify(processedData, null, 2)}
 3. **數據支撐**：所有結論引用具體決標數據佐證
 4. **可讀性**：使用清晰的結構與專業但易懂的語言
 5. **實用導向**：提供有助於理解市場機會與風險的洞察
+6. **⚠️ 多品項處理（重要）**：資料中標示 有多品項:true 的標案，代表該標案含多個得標廠商/品項。
+   - **禁止直接使用「決標金額_數字」加總**，該金額為整個標案的總額，並非本公司的份額。
+   - 請先檢閱「品項明細」中每筆品項的「得標廠商」，**只計入廠商名稱符合「${companyName}」的品項金額**。
+   - 若無法確認，請在報告中標注「金額待確認」，不要猜測。
 
 請以繁體中文撰寫完整的市場分析報告。`;
 
                 const analysisText = await callAI(analysisPrompt);
+                window.lastAnalysisText = analysisText;
 
                 document.getElementById('geminiAnalysis').innerHTML = `
                     <div class="analysis-content">
-                        <div style="white-space: pre-line; line-height: 1.8; font-size: 1.1rem;">${analysisText}</div>
+                        <div class="d-flex gap-2 mb-3">
+                            <button class="btn btn-outline-secondary btn-sm" onclick="copyAnalysisText()" title="複製分析報告">
+                                <i class="fas fa-copy me-1"></i>複製
+                            </button>
+                            <button class="btn btn-outline-success btn-sm" onclick="shareAnalysisToLine()" title="分享到 Line">
+                                <i class="fab fa-line me-1"></i>分享到 Line
+                            </button>
+                        </div>
+                        <div id="analysisTextBody" style="white-space: pre-line; line-height: 1.8; font-size: 1.1rem;">${analysisText}</div>
                     </div>
                 `;
 
@@ -1757,6 +1795,32 @@ ${JSON.stringify(processedData, null, 2)}
                     </div>
                 `;
             }
+        }
+
+        // 複製 AI 分析報告
+        function copyAnalysisText() {
+            const text = window.lastAnalysisText || document.getElementById('analysisTextBody')?.innerText || '';
+            if (!text) { alert('尚無分析內容可複製'); return; }
+            navigator.clipboard.writeText(text).then(() => {
+                alert('已複製 AI 分析報告到剪貼簿');
+            }).catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                alert('已複製 AI 分析報告到剪貼簿');
+            });
+        }
+
+        // 分享 AI 分析到 Line
+        function shareAnalysisToLine() {
+            const companyName = document.getElementById('companyName').textContent || '';
+            const summary = (window.lastAnalysisText || '').slice(0, 300).trim();
+            const shareText = `【${companyName} 市場分析摘要】\n${summary}...`;
+            const lineUrl = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(shareText)}`;
+            window.open(lineUrl, '_blank');
         }
 
         // 匯出公司分析 Excel

@@ -2822,9 +2822,20 @@ ${govUrl}
 
         // 開啟公司分析頁面
         function openCompanyAnalysis(companyName) {
-            // 在新分頁中開啟公司分析頁面
             const aiKey = getActiveAiKey();
             const provider = getAiProvider();
+            // 有 AI Key 才提示 token 費用
+            if (aiKey) {
+                const providerName = {claude:'Claude',gemini:'Gemini',chatgpt:'ChatGPT'}[provider] || provider;
+                const confirmed = confirm(
+                    `⚠️ Token 費用提醒\n\n` +
+                    `即將使用 ${providerName} 對「${companyName}」進行 AI 市場分析。\n\n` +
+                    `此操作將傳送大量標案資料給 AI 進行分析，\n` +
+                    `預計消耗約 2,000～8,000 tokens（依資料量而定）。\n\n` +
+                    `確定要繼續嗎？`
+                );
+                if (!confirmed) return;
+            }
             let analysisUrl = `company_analysis.html?company=${encodeURIComponent(companyName)}`;
             if (aiKey) analysisUrl += `&key=${encodeURIComponent(aiKey)}&provider=${provider}`;
             
