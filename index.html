@@ -12,6 +12,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <style>
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -669,6 +671,12 @@
                                     <option value="50">50筆</option>
                                     <option value="100">100筆</option>
                                 </select>
+                                <button class="btn btn-outline-success btn-sm" onclick="exportToCSV()" title="匯出 CSV">
+                                    <i class="fas fa-file-csv me-1"></i>CSV
+                                </button>
+                                <button class="btn btn-outline-primary btn-sm" onclick="exportToExcel()" title="匯出 Excel">
+                                    <i class="fas fa-file-excel me-1"></i>Excel
+                                </button>
                             </div>
                         </div>
                         <div id="resultsList"></div>
@@ -1820,6 +1828,74 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                         return 0;
                 }
             });
+        }
+
+        // 取得目前過濾+排序後的完整結果（不分頁）
+        function getFilteredResults() {
+            if (!window.allSearchResults) return [];
+            const filterType = document.querySelector('input[name="resultFilter"]:checked').value;
+            const sortBy = document.getElementById('sortBy').value;
+            let results = [...window.allSearchResults];
+            if (filterType !== 'all') results = filterByTenderType(results, filterType);
+            return sortResultsBy(results, sortBy);
+        }
+
+        // 將結果轉為匯出用的 row 陣列
+        function resultsToRows(results) {
+            return results.map(r => {
+                const brief = r.brief || {};
+                const companies = brief.companies || {};
+                const vendorNames = Array.isArray(companies.names) ? companies.names.join('、') : (companies.names || '');
+                return {
+                    '日期': r.date || '',
+                    '標案名稱': brief.title || '',
+                    '標案類型': brief.type || '',
+                    '機關名稱': r.unit_name || '',
+                    '機關代碼': r.unit_id || '',
+                    '案件編號': r.job_number || '',
+                    '得標廠商': vendorNames,
+                    '決標金額': brief.total_amount || brief.amount || ''
+                };
+            });
+        }
+
+        // 匯出 CSV
+        function exportToCSV() {
+            const results = getFilteredResults();
+            if (!results.length) { alert('目前沒有搜尋結果可供匯出'); return; }
+            const rows = resultsToRows(results);
+            const headers = Object.keys(rows[0]);
+            const csvContent = [
+                headers.join(','),
+                ...rows.map(row => headers.map(h => {
+                    const val = String(row[h] ?? '').replace(/"/g, '""');
+                    return `"${val}"`;
+                }).join(','))
+            ].join('\n');
+            const bom = '\uFEFF'; // UTF-8 BOM for Excel compatibility
+            const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `採購搜尋結果_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // 匯出 Excel
+        function exportToExcel() {
+            if (typeof XLSX === 'undefined') { alert('Excel 匯出套件尚未載入，請稍後再試'); return; }
+            const results = getFilteredResults();
+            if (!results.length) { alert('目前沒有搜尋結果可供匯出'); return; }
+            const rows = resultsToRows(results);
+            const ws = XLSX.utils.json_to_sheet(rows);
+            // 設定欄寬
+            ws['!cols'] = [
+                {wch:12},{wch:50},{wch:12},{wch:30},{wch:14},{wch:20},{wch:30},{wch:14}
+            ];
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '採購搜尋結果');
+            XLSX.writeFile(wb, `採購搜尋結果_${new Date().toISOString().slice(0,10)}.xlsx`);
         }
 
         // 創建結果項目
