@@ -1002,6 +1002,22 @@
             `;
             
             document.getElementById('tenderList').innerHTML = statsHtml + tenderHtml;
+
+            // 計算並填入統計數字
+            let listTotal = 0;
+            let listValidCount = 0;
+            results.slice(0, displayCount).forEach(record => {
+                const amt = extractCompanyAmount(record, companyName);
+                if (amt > 0) { listTotal += amt; listValidCount++; }
+            });
+            const listAvg = listValidCount > 0 ? Math.round(listTotal / listValidCount) : 0;
+            const fmt = n => new Intl.NumberFormat('zh-TW').format(n);
+
+            const el = id => document.getElementById(id);
+            if (el('totalCount'))      el('totalCount').textContent      = results.length + ' 筆';
+            if (el('totalAmount'))     el('totalAmount').textContent      = 'NT$ ' + fmt(listTotal);
+            if (el('avgAmount'))       el('avgAmount').textContent        = 'NT$ ' + fmt(listAvg);
+            if (el('validAmountCount')) el('validAmountCount').textContent = listValidCount + ' 筆';
         }
 
         // 載入公司資料
