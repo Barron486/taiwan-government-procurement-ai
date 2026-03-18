@@ -391,6 +391,7 @@
                                 <button type="button" class="btn btn-outline-secondary" onclick="setDateRange('last7days')">近7天</button>
                                 <button type="button" class="btn btn-outline-secondary" onclick="setDateRange('last30days')">近30天</button>
                                 <button type="button" class="btn btn-outline-secondary" onclick="setDateRange('thisYear')">本年至今</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="setDateRange('last3years')">近3年</button>
                                 <button type="button" class="btn btn-outline-secondary" onclick="setDateRange('all')">全部</button>
                             </div>
                         </div>
@@ -1017,6 +1018,12 @@
                     const thisYear = today.getFullYear();
                     const yearStart = new Date(thisYear, 0, 1); // 1月1日
                     startDateInput.value = yearStart.toISOString().split('T')[0];
+                    endDateInput.value = today.toISOString().split('T')[0];
+                    break;
+                case 'last3years':
+                    const threeYearsAgo = new Date(today);
+                    threeYearsAgo.setFullYear(today.getFullYear() - 3);
+                    startDateInput.value = threeYearsAgo.toISOString().split('T')[0];
                     endDateInput.value = today.toISOString().split('T')[0];
                     break;
                 case 'all':

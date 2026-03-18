@@ -6,6 +6,8 @@
     <title>公司得標分析（近3年）- 政府採購標案查詢系統</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <style>
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -134,6 +136,13 @@
                     </div>
                 </div>
 
+                <!-- 匯出按鈕列 -->
+                <div class="mb-4 text-end">
+                    <button class="btn btn-success" onclick="exportCompanyExcel()">
+                        <i class="fas fa-file-excel me-2"></i>匯出 Excel（含 AI 分析）
+                    </button>
+                </div>
+
                 <!-- 年度統計 -->
                 <div class="card analysis-card">
                     <div class="card-header">
@@ -141,6 +150,9 @@
                     </div>
                     <div class="card-body">
                         <div id="yearlyStats"></div>
+                        <div class="mt-4" style="max-width:700px;margin:0 auto;">
+                            <canvas id="yearlyChart"></canvas>
+                        </div>
                     </div>
                 </div>
 
@@ -672,6 +684,68 @@
             }).join('');
             
             document.getElementById('yearlyStats').innerHTML = yearlyHtml;
+
+            // 儲存年度資料供匯出使用
+            window.yearlyDataForExport = yearlyData;
+
+            // 繪製走勢圖
+            const years = Object.keys(yearlyData).sort();
+            const amounts = years.map(y => yearlyData[y].amount);
+            const counts = years.map(y => yearlyData[y].count);
+            const ctx = document.getElementById('yearlyChart');
+            if (ctx && typeof Chart !== 'undefined') {
+                if (window.yearlyChartInstance) window.yearlyChartInstance.destroy();
+                window.yearlyChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: years.map(y => y + '年'),
+                        datasets: [
+                            {
+                                label: '得標金額（元）',
+                                data: amounts,
+                                backgroundColor: 'rgba(54,162,235,0.5)',
+                                borderColor: 'rgba(54,162,235,1)',
+                                borderWidth: 1,
+                                yAxisID: 'y',
+                                order: 2
+                            },
+                            {
+                                label: '案件數',
+                                data: counts,
+                                type: 'line',
+                                borderColor: 'rgba(255,99,132,1)',
+                                backgroundColor: 'rgba(255,99,132,0.2)',
+                                pointRadius: 5,
+                                pointBackgroundColor: 'rgba(255,99,132,1)',
+                                fill: false,
+                                yAxisID: 'y1',
+                                order: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: { display: true, text: '歷年得標金額與案件數走勢', font: { size: 16 } }
+                        },
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                position: 'left',
+                                title: { display: true, text: '金額（元）' },
+                                ticks: { callback: v => v >= 1e8 ? (v/1e8).toFixed(1)+'億' : v >= 1e4 ? (v/1e4).toFixed(0)+'萬' : v }
+                            },
+                            y1: {
+                                type: 'linear',
+                                position: 'right',
+                                title: { display: true, text: '案件數' },
+                                grid: { drawOnChartArea: false },
+                                ticks: { stepSize: 1 }
+                            }
+                        }
+                    }
+                });
+            }
         }
 
         // 檢測是否有複數廠商決標，並取得特定公司的得標資訊
@@ -1704,6 +1778,73 @@ ${JSON.stringify(processedData, null, 2)}
                     </div>
                 `;
             }
+        }
+
+        // 匯出公司分析 Excel
+        function exportCompanyExcel() {
+            if (typeof XLSX === 'undefined') { alert('Excel 匯出套件尚未載入'); return; }
+            if (!companyData || !companyData.length) { alert('尚無資料可匯出'); return; }
+
+            const wb = XLSX.utils.book_new();
+            const companyName = document.getElementById('companyName').textContent || '公司';
+
+            // ── Sheet 1: AI 分析摘要 ──
+            const aiEl = document.getElementById('geminiAnalysis');
+            const aiText = aiEl ? aiEl.innerText : '';
+            const summaryRows = [
+                ['公司名稱', companyName],
+                ['分析日期', new Date().toISOString().slice(0, 10)],
+                ['AI 引擎', {claude:'Claude',gemini:'Gemini',chatgpt:'ChatGPT'}[aiProvider] || aiProvider],
+                [],
+                ['AI 分析報告'],
+                ...aiText.split('\n').map(line => [line])
+            ];
+            const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+            wsSummary['!cols'] = [{ wch: 20 }, { wch: 80 }];
+            XLSX.utils.book_append_sheet(wb, wsSummary, 'AI分析摘要');
+
+            // ── Sheet 2: 歷年得標統計 ──
+            const yd = window.yearlyDataForExport || {};
+            const years = Object.keys(yd).sort();
+            const yearlyRows = [['年度', '案件數', '總得標金額（元）']];
+            years.forEach(y => yearlyRows.push([parseInt(y), yd[y].count, yd[y].amount]));
+            yearlyRows.push([]);
+            yearlyRows.push(['合計', years.reduce((s,y) => s + yd[y].count, 0), years.reduce((s,y) => s + yd[y].amount, 0)]);
+            const wsYearly = XLSX.utils.aoa_to_sheet(yearlyRows);
+            wsYearly['!cols'] = [{ wch: 10 }, { wch: 10 }, { wch: 22 }];
+            // 格式化金額欄為數字
+            for (let r = 1; r <= years.length + 1; r++) {
+                const cell = wsYearly[XLSX.utils.encode_cell({r, c: 2})];
+                if (cell) cell.t = 'n';
+            }
+            XLSX.utils.book_append_sheet(wb, wsYearly, '歷年得標統計');
+
+            // ── Sheet 3: 得標明細 ──
+            const detailRows = companyData.map(record => {
+                const detail = record.detail || {};
+                const brief = record.brief || {};
+                let amount = 0;
+                ['決標資料:總決標金額', '投標廠商:投標廠商1:決標金額', '採購資料:決標金額'].forEach(k => {
+                    if (!amount && detail[k]) amount = parseFloat(String(detail[k]).replace(/[^0-9.-]/g, '')) || 0;
+                });
+                if (!amount && brief.amount) amount = parseFloat(String(brief.amount).replace(/[^0-9.-]/g, '')) || 0;
+                return {
+                    '日期': record.date || '',
+                    '標案名稱': brief.title || '',
+                    '標案類型': brief.type || '',
+                    '機關名稱': record.unit_name || '',
+                    '案件編號': record.job_number || '',
+                    '決標金額': amount,
+                    '得標廠商': detail['投標廠商:投標廠商1:廠商名稱'] || (brief.companies?.names?.join('、')) || ''
+                };
+            });
+            const wsDetail = XLSX.utils.json_to_sheet(detailRows);
+            wsDetail['!cols'] = [
+                {wch:12},{wch:50},{wch:12},{wch:30},{wch:20},{wch:18},{wch:30}
+            ];
+            XLSX.utils.book_append_sheet(wb, wsDetail, '得標明細');
+
+            XLSX.writeFile(wb, `${companyName}_採購分析_${new Date().toISOString().slice(0,10)}.xlsx`);
         }
 
         // 顯示錯誤
