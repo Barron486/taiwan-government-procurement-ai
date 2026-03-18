@@ -12,8 +12,10 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <!-- SheetJS for Excel export -->
+    <!-- SheetJS for Excel export (CSV用) -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <!-- ExcelJS for styled Excel export -->
+    <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
     <style>
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -704,14 +706,29 @@
                                 <button class="btn btn-outline-success btn-sm" onclick="exportToCSV()" title="匯出 CSV">
                                     <i class="fas fa-file-csv me-1"></i>CSV
                                 </button>
-                                <button class="btn btn-outline-primary btn-sm" onclick="exportToExcel()" title="匯出 Excel">
+                                <button class="btn btn-outline-primary btn-sm" onclick="exportAwardExcel(false)" title="匯出 Excel（全部）">
                                     <i class="fas fa-file-excel me-1"></i>Excel
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="exportAwardExcel(true)" title="僅匯出決標案件">
+                                    <i class="fas fa-gavel me-1"></i>僅決標
                                 </button>
                             </div>
                         </div>
                         <div id="resultsList"></div>
                         <div id="pagination" class="mt-4"></div>
                     </div>
+                </div>
+            </div>
+
+            <!-- 匯出進度 Overlay -->
+            <div id="exportOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:none;align-items:center;justify-content:center;">
+                <div class="bg-white rounded p-4 text-center" style="min-width:320px;">
+                    <div class="spinner-border text-primary mb-3" role="status"></div>
+                    <p id="exportProgressMsg" class="mb-2 fw-bold">準備匯出...</p>
+                    <div class="progress" style="height:8px;">
+                        <div id="exportProgressBar" class="progress-bar" style="width:0%;transition:width .2s"></div>
+                    </div>
+                    <small id="exportProgressDetail" class="text-muted mt-2 d-block"></small>
                 </div>
             </div>
 
@@ -2044,20 +2061,200 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
             URL.revokeObjectURL(url);
         }
 
-        // 匯出 Excel
-        function exportToExcel() {
-            if (typeof XLSX === 'undefined') { alert('Excel 匯出套件尚未載入，請稍後再試'); return; }
-            const results = getFilteredResults();
-            if (!results.length) { alert('目前沒有搜尋結果可供匯出'); return; }
-            const rows = resultsToRows(results);
-            const ws = XLSX.utils.json_to_sheet(rows);
-            // 設定欄寬
-            ws['!cols'] = [
-                {wch:12},{wch:50},{wch:12},{wch:30},{wch:14},{wch:20},{wch:30},{wch:14}
+        // 匯出 Excel（舊版保留，導向新版）
+        function exportToExcel() { exportAwardExcel(false); }
+
+        // 匯出進度控制
+        function showExportOverlay(msg, detail = '') {
+            const el = document.getElementById('exportOverlay');
+            el.style.display = 'flex';
+            document.getElementById('exportProgressMsg').textContent = msg;
+            document.getElementById('exportProgressDetail').textContent = detail;
+            document.getElementById('exportProgressBar').style.width = '0%';
+        }
+        function updateExportProgress(current, total, detail = '') {
+            document.getElementById('exportProgressBar').style.width = `${Math.round(current / total * 100)}%`;
+            document.getElementById('exportProgressDetail').textContent = detail;
+        }
+        function hideExportOverlay() {
+            document.getElementById('exportOverlay').style.display = 'none';
+        }
+
+        // 主匯出函式：支援「全部」和「僅決標」
+        async function exportAwardExcel(awardOnly = false) {
+            if (typeof ExcelJS === 'undefined') { alert('ExcelJS 套件尚未載入，請稍後再試'); return; }
+
+            let results = getFilteredResults();
+            if (awardOnly) {
+                results = results.filter(r => {
+                    const t = r.brief?.type || '';
+                    return (t.includes('決標') || t.includes('得標')) && !t.includes('無法決標');
+                });
+            }
+            if (!results.length) { alert('沒有可匯出的資料'); return; }
+
+            const MAX_DETAIL = 100;
+            if (results.length > MAX_DETAIL) {
+                const ok = confirm(`共 ${results.length} 筆，需逐筆取得決標金額，可能需要較長時間。\n最多處理前 ${MAX_DETAIL} 筆，繼續？`);
+                if (!ok) return;
+                results = results.slice(0, MAX_DETAIL);
+            }
+
+            showExportOverlay('載入詳細資料中...', `0 / ${results.length}`);
+
+            // ── Step 1: 補齊 detail ──
+            for (let i = 0; i < results.length; i++) {
+                updateExportProgress(i + 1, results.length + 2, `載入詳細資料 ${i+1} / ${results.length}`);
+                const r = results[i];
+                if (!r._detailFetched && (!r.detail || Object.keys(r.detail).length === 0)) {
+                    try {
+                        const { resp } = await fetchFromApis(
+                            `/tender?unit_id=${encodeURIComponent(r.unit_id)}&job_number=${encodeURIComponent(r.job_number)}`,
+                            { method: 'GET', headers: { 'Accept': 'application/json' } }, 10000, 1);
+                        const data = await resp.json();
+                        const rec = (data.records && data.records[0]) || data;
+                        r.detail = rec?.detail || {};
+                        r._detailFetched = true;
+                    } catch (e) {
+                        r.detail = r.detail || {};
+                    }
+                }
+            }
+
+            // ── Step 2: 偵測多品項 ──
+            const multiItemIdxs = [];
+            results.forEach((r, i) => {
+                const d = r.detail || {};
+                const cnt = parseInt(d['決標品項:決標品項數'] || d['決標品項數'] || '0');
+                const hasMulti = cnt > 1 || Object.keys(d).some(k => /決標品項:第[2-9]/.test(k));
+                r._isMultiItem = hasMulti;
+                r._itemCount = cnt || 0;
+                if (hasMulti) multiItemIdxs.push(i);
+            });
+
+            // ── Step 3: AI 篩選多品項 ──
+            const aiKey = getActiveAiKey();
+            const searchQuery = [
+                document.getElementById('titleQuery')?.value,
+                document.getElementById('companyNameQuery')?.value,
+                document.getElementById('companyIdQuery')?.value
+            ].filter(Boolean).join(' / ') || '政府採購';
+
+            if (aiKey && multiItemIdxs.length > 0) {
+                updateExportProgress(results.length + 1, results.length + 2,
+                    `AI 分析 ${multiItemIdxs.length} 筆多品項標案...`);
+                const batch = multiItemIdxs.map(i => {
+                    const r = results[i]; const d = r.detail || {};
+                    const items = [];
+                    for (let j = 1; j <= 20; j++) {
+                        const nm = d[`決標品項:第${j}品項:品項名稱`]; if (!nm) break;
+                        items.push({ 品項: j, 名稱: nm,
+                            廠商: d[`決標品項:第${j}品項:得標廠商${j}`] || d[`第${j}品項:得標廠商`] || '',
+                            金額: d[`決標品項:第${j}品項:決標金額`] || d[`第${j}品項:決標金額`] || '' });
+                    }
+                    return { idx: i, 標案: r.brief?.title, 品項: items };
+                });
+                try {
+                    const prompt =
+                        `搜尋關鍵字：「${searchQuery}」\n` +
+                        `以下是多品項決標標案。請為每筆找出與搜尋關鍵字最相關的品項，計算金額總和（純整數）。\n` +
+                        `若無法判斷金額則填 null。\n` +
+                        `資料：\n${JSON.stringify(batch, null, 2)}\n\n` +
+                        `以 JSON 陣列回傳：[{"idx":0,"建議金額":123456,"說明":"..."}]`;
+                    const resp = await callAI(prompt);
+                    const m = resp.match(/\[[\s\S]*?\]/);
+                    if (m) {
+                        JSON.parse(m[0]).forEach(item => {
+                            if (typeof item.idx === 'number' && item.idx < results.length) {
+                                results[item.idx]._aiAmount = item.建議金額;
+                                results[item.idx]._aiNote = item.說明 || 'AI篩選品項';
+                            }
+                        });
+                    }
+                } catch (e) { console.warn('AI 多品項分析失敗:', e); }
+            }
+
+            // ── Step 4: 建立 Excel ──
+            updateExportProgress(results.length + 2, results.length + 2, '產生 Excel 檔案...');
+            const wb = new ExcelJS.Workbook();
+            wb.creator = '政府採購查詢系統';
+            const ws = wb.addWorksheet(awardOnly ? '決標案件' : '採購搜尋結果');
+            ws.columns = [
+                { header: '日期',     key: 'date',     width: 12 },
+                { header: '標案名稱', key: 'title',    width: 50 },
+                { header: '標案類型', key: 'type',     width: 14 },
+                { header: '機關名稱', key: 'unit',     width: 28 },
+                { header: '機關代碼', key: 'uid',      width: 14 },
+                { header: '案件編號', key: 'job',      width: 22 },
+                { header: '得標廠商', key: 'vendor',   width: 30 },
+                { header: '決標金額', key: 'amount',   width: 16 },
+                { header: '備註',     key: 'note',     width: 30 }
             ];
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, '採購搜尋結果');
-            XLSX.writeFile(wb, `採購搜尋結果_${new Date().toISOString().slice(0,10)}.xlsx`);
+            // 標頭樣式
+            ws.getRow(1).eachCell(cell => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+                cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            });
+            ws.getRow(1).height = 20;
+
+            let totalAmount = 0;
+            results.forEach(r => {
+                const brief = r.brief || {}; const detail = r.detail || {};
+                const companies = brief.companies || {};
+                const vendorNames = Array.isArray(companies.names) ? companies.names.join('、') : (companies.names || '');
+                const vendor1 = detail['投標廠商:投標廠商1:廠商名稱'] || detail['得標廠商:廠商名稱'] || '';
+
+                let amount = r._aiAmount !== undefined ? r._aiAmount : extractAwardAmount(r);
+                let note = '';
+                if (r._isMultiItem) {
+                    note = r._aiAmount !== undefined
+                        ? `AI篩選: ${r._aiNote}`
+                        : `⚠️ 多品項(${r._itemCount || '?'}個)・金額待確認`;
+                }
+
+                const row = ws.addRow({
+                    date: String(r.date || ''),
+                    title: brief.title || '',
+                    type: brief.type || '',
+                    unit: r.unit_name || '',
+                    uid: r.unit_id || '',
+                    job: r.job_number || '',
+                    vendor: vendor1 || vendorNames,
+                    amount: typeof amount === 'number' ? amount : (parseInt(amount) || ''),
+                    note
+                });
+
+                // 金額格式
+                if (row.getCell('amount').value) {
+                    row.getCell('amount').numFmt = '#,##0';
+                    totalAmount += row.getCell('amount').value || 0;
+                }
+
+                // 多品項：黃底
+                if (r._isMultiItem) {
+                    row.eachCell(cell => {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+                    });
+                }
+            });
+
+            // 合計列
+            const totalRow = ws.addRow({ vendor: '合計', amount: totalAmount });
+            totalRow.font = { bold: true };
+            totalRow.getCell('amount').numFmt = '#,##0';
+            totalRow.getCell('amount').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2EFDA' } };
+
+            // 下載
+            hideExportOverlay();
+            const buffer = await wb.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${awardOnly ? '決標案件' : '採購搜尋結果'}_${new Date().toISOString().slice(0,10)}.xlsx`;
+            a.click();
+            URL.revokeObjectURL(url);
         }
 
         // 創建結果項目
