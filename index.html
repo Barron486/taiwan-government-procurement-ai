@@ -2042,13 +2042,18 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
         function extractAwardAmount(r) {
             const detail = r.detail || {};
             const brief = r.brief || {};
+
+            // 1. 優先嘗試精確的欄位名稱
             const keys = [
                 '決標資料:總決標金額',
                 '決標資料:決標金額',
                 '投標廠商:投標廠商1:決標金額',
                 '得標廠商:決標金額',
                 '採購資料:決標金額',
-                '決標資料:決標廠商1:決標金額'
+                '決標資料:決標廠商1:決標金額',
+                '決標資料:決標廠商1:得標金額',
+                '決標品項:第1品項:決標金額',
+                '第1品項:決標金額'
             ];
             for (const k of keys) {
                 if (detail[k]) {
@@ -2056,6 +2061,16 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
                     if (n > 0) return n;
                 }
             }
+
+            // 2. 模糊搜尋 detail keys 中含「決標金額」或「總決標金額」的
+            for (const [k, v] of Object.entries(detail)) {
+                if ((k.includes('決標金額') || k.includes('總金額')) && v) {
+                    const n = parseInt(String(v).replace(/[^0-9]/g, ''));
+                    if (n > 0) return n;
+                }
+            }
+
+            // 3. brief.amount 兜底
             if (brief.amount) {
                 const n = parseInt(String(brief.amount).replace(/[^0-9]/g, ''));
                 if (n > 0) return n;
@@ -2148,21 +2163,25 @@ ${JSON.stringify(allAgentResults.slice(0, 20), null, 2)}
 
             showExportOverlay('載入詳細資料中...', `0 / ${results.length}`);
 
-            // ── Step 1: 補齊 detail ──
+            // ── Step 1: 逐筆呼叫 /tender 補齊完整 detail（搜尋結果的 detail 只有 metadata，缺少金額）──
             for (let i = 0; i < results.length; i++) {
                 updateExportProgress(i + 1, results.length + 2, `載入詳細資料 ${i+1} / ${results.length}`);
                 const r = results[i];
-                if (!r._detailFetched && (!r.detail || Object.keys(r.detail).length === 0)) {
+                // 搜尋結果的 detail 是 sparse，必須每筆呼叫 /tender 取完整 detail
+                if (!r._detailFetched) {
                     try {
                         const { resp } = await fetchFromApis(
                             `/tender?unit_id=${encodeURIComponent(r.unit_id)}&job_number=${encodeURIComponent(r.job_number)}`,
                             { method: 'GET', headers: { 'Accept': 'application/json' } }, 10000, 1);
                         const data = await resp.json();
                         const rec = (data.records && data.records[0]) || data;
-                        r.detail = rec?.detail || {};
+                        if (rec?.detail && Object.keys(rec.detail).length > 0) {
+                            r.detail = rec.detail;
+                        }
                         r._detailFetched = true;
                     } catch (e) {
-                        r.detail = r.detail || {};
+                        console.warn(`取得 ${r.job_number} 詳細資料失敗:`, e.message);
+                        r._detailFetched = true; // 標記已嘗試，避免重複
                     }
                 }
             }
