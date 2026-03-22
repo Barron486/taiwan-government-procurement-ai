@@ -843,7 +843,7 @@
             
             // 如果使用代理模式
             if (API_PROXY) {
-                const url = window.API_CONFIG.buildUrl(path, extractParams(path));
+                const url = window.API_CONFIG.buildUrl(path);
                 tried.push(url);
                 
                 try {
