@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API 測試面板 - 政府採購系統</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root { --bg: #0f172a; --card: #1e293b; --border: #334155; --text: #e2e8f0; --accent: #38bdf8; --ok: #22c55e; --fail: #ef4444; --warn: #eab308; }
+        * { box-sizing: border-box; }
+        body { background: var(--bg); color: var(--text); font-family: 'Menlo', 'Consolas', monospace; margin: 0; padding: 20px; }
+        h1 { font-size: 1.3rem; color: var(--accent); margin-bottom: 4px; }
+        .subtitle { color: #64748b; font-size: 0.8rem; margin-bottom: 20px; }
+        .grid { display: grid; grid-template-columns: 340px 1fr; gap: 20px; max-width: 1400px; margin: 0 auto; }
+        @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+        .panel { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+        .panel-title { font-size: 0.85rem; font-weight: bold; color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+        .ep-btn { display: block; width: 100%; text-align: left; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; margin-bottom: 6px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 0.78rem; transition: border-color 0.2s; }
+        .ep-btn:hover { border-color: var(--accent); }
+        .ep-btn.active { border-color: var(--accent); background: #1e3a5f; }
+        .ep-btn .ep-path { color: var(--accent); font-weight: bold; }
+        .ep-btn .ep-desc { color: #94a3b8; font-size: 0.72rem; }
+        .ep-btn .ep-status { float: right; font-size: 0.75rem; }
+        .ep-btn .ep-status.ok { color: var(--ok); }
+        .ep-btn .ep-status.fail { color: var(--fail); }
+        .ep-btn .ep-status.pending { color: #64748b; }
+        label { font-size: 0.75rem; color: #94a3b8; display: block; margin-bottom: 3px; margin-top: 10px; }
+        input, select, textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 4px; font-family: inherit; font-size: 0.8rem; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+        textarea { resize: vertical; min-height: 60px; }
+        .btn-row { display: flex; gap: 8px; margin-top: 14px; }
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 0.8rem; font-weight: bold; }
+        .btn-primary { background: var(--accent); color: var(--bg); }
+        .btn-primary:hover { background: #0ea5e9; }
+        .btn-secondary { background: var(--border); color: var(--text); }
+        .btn-secondary:hover { background: #475569; }
+        .btn-success { background: var(--ok); color: #000; }
+        .btn-danger { background: var(--fail); color: #fff; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .result-meta { font-size: 0.72rem; color: #64748b; }
+        .result-body { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px; max-height: 500px; overflow: auto; white-space: pre-wrap; word-break: break-all; font-size: 0.75rem; line-height: 1.5; }
+        .status-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: bold; }
+        .status-badge.s2xx { background: #166534; color: #bbf7d0; }
+        .status-badge.s3xx { background: #854d0e; color: #fef08a; }
+        .status-badge.s4xx { background: #9a3412; color: #fed7aa; }
+        .status-badge.s5xx { background: #991b1b; color: #fecaca; }
+        .status-badge.serr { background: #7f1d1d; color: #fca5a5; }
+        .summary-bar { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+        .summary-item { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 10px 16px; text-align: center; min-width: 100px; }
+        .summary-item .num { font-size: 1.4rem; font-weight: bold; }
+        .summary-item .lbl { font-size: 0.7rem; color: #94a3b8; }
+        .history-entry { padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 0.75rem; cursor: pointer; }
+        .history-entry:hover { color: var(--accent); }
+        .copy-btn { background: none; border: 1px solid var(--border); color: #94a3b8; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; }
+        .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+    </style>
+</head>
+<body>
+    <div style="max-width:1400px;margin:0 auto;">
+        <h1>&#x1f9ea; API 測試面板</h1>
+        <p class="subtitle">人工測試所有 API 端點 &mdash; 確認正常後再讓 AI 修復</p>
+
+        <!-- Summary -->
+        <div class="summary-bar" id="summaryBar">
+            <div class="summary-item"><div class="num" id="sumTotal">-</div><div class="lbl">總測試</div></div>
+            <div class="summary-item"><div class="num" style="color:var(--ok)" id="sumOk">-</div><div class="lbl">成功</div></div>
+            <div class="summary-item"><div class="num" style="color:var(--fail)" id="sumFail">-</div><div class="lbl">失敗</div></div>
+            <div class="summary-item"><div class="num" style="color:var(--accent)" id="sumAvg">-</div><div class="lbl">平均回應</div></div>
+        </div>
+
+        <div class="grid">
+            <!-- Left: Endpoint list -->
+            <div>
+                <div class="panel">
+                    <div class="panel-title">&#x1f4e1; API 端點</div>
+                    <div style="margin-bottom:10px;">
+                        <label>API 來源</label>
+                        <select id="apiSource">
+                            <option value="https://pcc-api.openfun.app/api">openfun (主要)</option>
+                            <option value="https://pcc.g0v.ronny.tw/api">g0v (備援)</option>
+                            <option value="proxy">Vercel Proxy</option>
+                            <option value="custom">自訂...</option>
+                        </select>
+                        <input type="text" id="customApiBase" placeholder="https://your-api.com/api" style="display:none;margin-top:6px;">
+                    </div>
+                    <div class="btn-row" style="margin-top:8px;margin-bottom:12px;">
+                        <button class="btn btn-success" onclick="runAllTests()" id="btnRunAll">&#x25B6; 全部測試</button>
+                        <button class="btn btn-secondary" onclick="clearAll()">清除結果</button>
+                    </div>
+                    <div id="endpointList"></div>
+                </div>
+
+                <div class="panel" style="margin-top:12px;">
+                    <div class="panel-title">&#x1f4cb; 測試紀錄</div>
+                    <div id="historyList" style="max-height:200px;overflow:auto;"><span style="color:#64748b;font-size:0.75rem;">尚無紀錄</span></div>
+                </div>
+            </div>
+
+            <!-- Right: Test config & result -->
+            <div>
+                <div class="panel" id="testPanel">
+                    <div class="panel-title">&#x2699;&#xfe0f; 測試設定</div>
+                    <label>請求網址</label>
+                    <input type="text" id="reqUrl" readonly style="color:#64748b;">
+                    <label>Method</label>
+                    <select id="reqMethod">
+                        <option>GET</option>
+                        <option>POST</option>
+                    </select>
+                    <label>查詢參數（每行一個 key=value）</label>
+                    <textarea id="reqParams" rows="3" placeholder="query=電腦&#10;page=1"></textarea>
+                    <label>Headers（JSON，選填）</label>
+                    <textarea id="reqHeaders" rows="2" placeholder='{"Authorization": "Bearer ..."}'></textarea>
+                    <label>Body（POST 用，JSON）</label>
+                    <textarea id="reqBody" rows="2" placeholder='{"prompt": "..."}' style="display:none;"></textarea>
+                    <label>Timeout (ms)</label>
+                    <input type="number" id="reqTimeout" value="15000" style="width:120px;">
+
+                    <div class="btn-row">
+                        <button class="btn btn-primary" onclick="runSingleTest()" id="btnSend">&#x1f680; 發送請求</button>
+                    </div>
+                </div>
+
+                <div class="panel" style="margin-top:12px;">
+                    <div class="result-header">
+                        <div class="panel-title" style="margin:0;">&#x1f4e8; 回應結果</div>
+                        <div>
+                            <span id="resStatus"></span>
+                            <span class="result-meta" id="resMeta"></span>
+                            <button class="copy-btn" onclick="copyResult()">複製</button>
+                        </div>
+                    </div>
+                    <div class="result-body" id="resBody">點擊左側端點或「發送請求」開始測試</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+const ENDPOINTS = [
+    { path: '/searchbytitle',       method: 'GET', params: 'query=電腦\npage=1',    desc: '標案名稱搜尋', group: '搜尋' },
+    { path: '/searchbycompanyname', method: 'GET', params: 'query=中華電信\npage=1', desc: '公司名稱搜尋', group: '搜尋' },
+    { path: '/searchbycompanyid',   method: 'GET', params: 'query=96979933\npage=1', desc: '統一編號搜尋', group: '搜尋' },
+    { path: '/listbyunit',          method: 'GET', params: 'unit_id=3.76.30\npage=1', desc: '機關標案列表', group: '列表' },
+    { path: '/tender',              method: 'GET', params: 'unit_id=3.76.30\njob_number=1140102', desc: '標案詳情', group: '詳情' },
+    { path: '/getinfo',             method: 'GET', params: '', desc: '資料統計', group: '系統' },
+];
+
+const VERCEL_PROXY = 'https://taiwan-government-procurement-ai.vercel.app/api/proxy';
+let testResults = {};
+let history = [];
+let selectedIdx = null;
+
+// ── 初始化 ──
+function init() {
+    renderEndpoints();
+    document.getElementById('apiSource').addEventListener('change', function() {
+        document.getElementById('customApiBase').style.display = this.value === 'custom' ? '' : 'none';
+        updateRequestUrl();
+    });
+    document.getElementById('reqMethod').addEventListener('change', function() {
+        document.getElementById('reqBody').style.display = this.value === 'POST' ? '' : 'none';
+    });
+    document.getElementById('reqParams').addEventListener('input', updateRequestUrl);
+    selectEndpoint(0);
+}
+
+function getApiBase() {
+    const src = document.getElementById('apiSource').value;
+    if (src === 'proxy') return '__PROXY__';
+    if (src === 'custom') return document.getElementById('customApiBase').value.replace(/\/+$/, '');
+    return src;
+}
+
+function parseParams(text) {
+    const params = {};
+    for (const line of text.split('\n')) {
+        const t = line.trim();
+        if (!t) continue;
+        const eq = t.indexOf('=');
+        if (eq > 0) params[t.slice(0, eq).trim()] = t.slice(eq + 1).trim();
+    }
+    return params;
+}
+
+function buildTestUrl(path, paramsText) {
+    const base = getApiBase();
+    const params = parseParams(paramsText);
+    const qs = new URLSearchParams(params).toString();
+
+    if (base === '__PROXY__') {
+        const fullPath = path + (qs ? '?' + qs : '');
+        return VERCEL_PROXY + '?' + new URLSearchParams({ path: fullPath }).toString();
+    }
+    return base + path + (qs ? '?' + qs : '');
+}
+
+function updateRequestUrl() {
+    if (selectedIdx === null) return;
+    const ep = ENDPOINTS[selectedIdx];
+    const paramsText = document.getElementById('reqParams').value;
+    document.getElementById('reqUrl').value = buildTestUrl(ep.path, paramsText);
+}
+
+// ── 端點列表 ──
+function renderEndpoints() {
+    const el = document.getElementById('endpointList');
+    el.innerHTML = ENDPOINTS.map((ep, i) => {
+        const r = testResults[i];
+        let statusHtml = '<span class="ep-status pending">--</span>';
+        if (r) {
+            statusHtml = r.ok
+                ? `<span class="ep-status ok">${r.status} ${r.elapsed}ms</span>`
+                : `<span class="ep-status fail">${r.error || r.status}</span>`;
+        }
+        return `<button class="ep-btn ${selectedIdx === i ? 'active' : ''}" onclick="selectEndpoint(${i})">
+            ${statusHtml}
+            <span class="ep-path">${ep.path}</span><br>
+            <span class="ep-desc">${ep.desc}</span>
+        </button>`;
+    }).join('');
+}
+
+function selectEndpoint(i) {
+    selectedIdx = i;
+    const ep = ENDPOINTS[i];
+    document.getElementById('reqMethod').value = ep.method;
+    document.getElementById('reqParams').value = ep.params;
+    document.getElementById('reqBody').style.display = ep.method === 'POST' ? '' : 'none';
+    updateRequestUrl();
+    renderEndpoints();
+
+    if (testResults[i] && testResults[i].body) {
+        showResult(testResults[i]);
+    }
+}
+
+// ── 測試執行 ──
+async function doFetch(url, method, headers, body, timeout) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+    const start = performance.now();
+    try {
+        const opts = { method, signal: controller.signal, headers: { 'Accept': 'application/json', ...headers } };
+        if (method === 'POST' && body) {
+            opts.body = body;
+            opts.headers['Content-Type'] = 'application/json';
+        }
+        const resp = await fetch(url, opts);
+        const elapsed = Math.round(performance.now() - start);
+        const text = await resp.text();
+        let json = null;
+        try { json = JSON.parse(text); } catch {}
+        return { ok: resp.ok, status: resp.status, elapsed, text, json, headers: Object.fromEntries(resp.headers.entries()) };
+    } catch (err) {
+        const elapsed = Math.round(performance.now() - start);
+        return { ok: false, status: 0, elapsed, error: err.name === 'AbortError' ? 'TIMEOUT' : err.message };
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+async function runSingleTest() {
+    const url = document.getElementById('reqUrl').value;
+    const method = document.getElementById('reqMethod').value;
+    const timeout = parseInt(document.getElementById('reqTimeout').value) || 15000;
+    let headers = {};
+    try { headers = JSON.parse(document.getElementById('reqHeaders').value || '{}'); } catch {}
+    const body = method === 'POST' ? document.getElementById('reqBody').value : null;
+
+    document.getElementById('btnSend').disabled = true;
+    document.getElementById('btnSend').textContent = '⏳ 請求中...';
+    document.getElementById('resBody').textContent = '載入中...';
+
+    const result = await doFetch(url, method, headers, body, timeout);
+    result.url = url;
+    result.body = result.json ? JSON.stringify(result.json, null, 2) : (result.text || result.error || 'No response');
+
+    if (selectedIdx !== null) {
+        testResults[selectedIdx] = result;
+        renderEndpoints();
+    }
+
+    showResult(result);
+    addHistory(url, result);
+    updateSummary();
+
+    document.getElementById('btnSend').disabled = false;
+    document.getElementById('btnSend').textContent = '🚀 發送請求';
+}
+
+async function runAllTests() {
+    const btn = document.getElementById('btnRunAll');
+    btn.disabled = true;
+    btn.textContent = '⏳ 測試中...';
+
+    for (let i = 0; i < ENDPOINTS.length; i++) {
+        selectEndpoint(i);
+        await runSingleTest();
+        // 短暫間隔避免 rate limit
+        await new Promise(r => setTimeout(r, 300));
+    }
+
+    btn.disabled = false;
+    btn.textContent = '▶ 全部測試';
+
+    // 自動選中第一個失敗的
+    const failIdx = ENDPOINTS.findIndex((_, i) => testResults[i] && !testResults[i].ok);
+    if (failIdx >= 0) selectEndpoint(failIdx);
+}
+
+function showResult(result) {
+    const statusEl = document.getElementById('resStatus');
+    if (result.ok) {
+        statusEl.innerHTML = `<span class="status-badge s2xx">${result.status}</span>`;
+    } else if (result.status >= 300 && result.status < 400) {
+        statusEl.innerHTML = `<span class="status-badge s3xx">${result.status}</span>`;
+    } else if (result.status >= 400 && result.status < 500) {
+        statusEl.innerHTML = `<span class="status-badge s4xx">${result.status}</span>`;
+    } else if (result.status >= 500) {
+        statusEl.innerHTML = `<span class="status-badge s5xx">${result.status}</span>`;
+    } else {
+        statusEl.innerHTML = `<span class="status-badge serr">${result.error || 'ERR'}</span>`;
+    }
+
+    document.getElementById('resMeta').textContent = `${result.elapsed}ms`;
+    document.getElementById('resBody').textContent = result.body;
+}
+
+// ── 歷史紀錄 ──
+function addHistory(url, result) {
+    const time = new Date().toLocaleTimeString();
+    const status = result.ok ? `✓ ${result.status}` : `✗ ${result.error || result.status}`;
+    history.unshift({ time, url, status, result });
+    if (history.length > 50) history.pop();
+    renderHistory();
+}
+
+function renderHistory() {
+    const el = document.getElementById('historyList');
+    el.innerHTML = history.map((h, i) =>
+        `<div class="history-entry" onclick="showHistoryResult(${i})">
+            <span style="color:#64748b">${h.time}</span>
+            ${h.status.startsWith('✓') ? `<span style="color:var(--ok)">${h.status}</span>` : `<span style="color:var(--fail)">${h.status}</span>`}
+            <span style="color:var(--accent)">${h.url.split('?')[0].split('/').pop()}</span>
+        </div>`
+    ).join('');
+}
+
+function showHistoryResult(i) {
+    showResult(history[i].result);
+}
+
+// ── 統計 ──
+function updateSummary() {
+    const results = Object.values(testResults);
+    const total = results.length;
+    const ok = results.filter(r => r.ok).length;
+    const fail = total - ok;
+    const avg = total > 0 ? Math.round(results.reduce((s, r) => s + r.elapsed, 0) / total) : 0;
+
+    document.getElementById('sumTotal').textContent = total;
+    document.getElementById('sumOk').textContent = ok;
+    document.getElementById('sumFail').textContent = fail;
+    document.getElementById('sumAvg').textContent = avg + 'ms';
+}
+
+// ── 複製 ──
+function copyResult() {
+    const text = document.getElementById('resBody').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('.copy-btn');
+        btn.textContent = '已複製!';
+        setTimeout(() => btn.textContent = '複製', 1500);
+    });
+}
+
+function clearAll() {
+    testResults = {};
+    history = [];
+    renderEndpoints();
+    renderHistory();
+    document.getElementById('resBody').textContent = '';
+    document.getElementById('resStatus').innerHTML = '';
+    document.getElementById('resMeta').textContent = '';
+    document.getElementById('sumTotal').textContent = '-';
+    document.getElementById('sumOk').textContent = '-';
+    document.getElementById('sumFail').textContent = '-';
+    document.getElementById('sumAvg').textContent = '-';
+}
+
+init();
+</script>
+</body>
+</html>
