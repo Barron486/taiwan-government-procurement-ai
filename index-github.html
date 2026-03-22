@@ -203,13 +203,14 @@
                 // 搜尋標案
                 const { resp } = await fetchFromApis(`/searchbytitle?query=${encodeURIComponent(query)}&page=1`);
                 const data = await resp.json();
-                
-                if (data && data.length > 0) {
-                    displayResults(data);
-                    
+                const records = data.records || data || [];
+
+                if (records && records.length > 0) {
+                    displayResults(records);
+
                     // 如果有 Gemini API Key，執行 AI 分析
                     if (geminiKey) {
-                        await performAIAnalysis(query, geminiKey, data);
+                        await performAIAnalysis(query, geminiKey, records);
                     }
                 } else {
                     showMessage('未找到相關標案', 'warning');
